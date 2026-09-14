@@ -535,7 +535,6 @@
   /* Cache des téléchargements PDF. On ne touche pas à la mécanique d'affichage
      de V28 : on accélère seulement l'arrivée des données des autres langues. */
   const catalogueBufferPromises = new Map();
-  const catalogueDocumentPromises = new Map();
 
   /* Chaque page rendue est conservée pour le PDF actuellement affiché. */
   const renderedPages = new Set();
@@ -1268,8 +1267,11 @@
   function prefetchOtherCatalogues(currentLanguage) {
     Object.keys(catalogues).forEach(function(language) {
       if (language !== currentLanguage) {
-        /* Téléchargement + ouverture PDF.js en arrière-plan. */
-        getCatalogueDocument(language).catch(function() {});
+        /* On précharge uniquement les données binaires.
+           Le document PDF.js sera créé frais à chaque affichage.
+           Cela évite de réutiliser un PDFDocumentProxy qui peut avoir
+           conservé un état interne après un changement de langue. */
+        getCatalogueBuffer(language).catch(function() {});
       }
     });
   }
@@ -1280,29 +1282,25 @@
       return Promise.reject(new Error('Langue de catalogue inconnue.'));
     }
 
-    /* Chaque langue conserve son propre document PDF.js en cache.
-       Une fois préparé, le retour vers cette langue est quasi instantané. */
-    if (!catalogueDocumentPromises.has(language)) {
-      const promise = getCatalogueBuffer(language)
-        .then(function(buffer) {
-          const data = buffer.slice(0);
-          return pdfjsLib.getDocument({
-            data: data,
-            disableAutoFetch: false,
-            disableStream: false,
-            disableRange: false,
-            cMapPacked: true
-          }).promise;
-        })
-        .catch(function(error) {
-          catalogueDocumentPromises.delete(language);
-          throw error;
-        });
+    /*
+       IMPORTANT :
+       Le buffer du PDF est mis en cache, mais PAS le PDFDocumentProxy PDF.js.
+       À chaque changement de langue, on crée donc un nouveau document PDF.js.
+       Ainsi FR → EN → FR fonctionne toujours, même après destruction du
+       PageFlip précédent.
+    */
+    return getCatalogueBuffer(language)
+      .then(function(buffer) {
+        const data = buffer.slice(0);
 
-      catalogueDocumentPromises.set(language, promise);
-    }
-
-    return catalogueDocumentPromises.get(language);
+        return pdfjsLib.getDocument({
+          data: data,
+          disableAutoFetch: false,
+          disableStream: false,
+          disableRange: false,
+          cMapPacked: true
+        }).promise;
+      });
   }
 
   async function loadCatalogue(language) {
@@ -1383,10 +1381,10 @@
       if (previousPageFlip && previousPageFlip !== pageFlip) {
         try { previousPageFlip.destroy(); } catch (error) {}
       }
-      /* Les documents PDF.js sont conservés dans catalogueDocumentPromises pour
-         rendre les retours de langue instantanés. Ne surtout pas appeler cleanup()
-         ici : cela détruirait le document conservé en cache et empêcherait ensuite
-         de revenir sur cette langue (notamment FR). */
+      /* Les données binaires des catalogues restent en cache.
+         Le document PDF.js affiché est recréé à chaque changement de langue,
+         ce qui garantit que l'on peut toujours revenir au Français ou à toute
+         autre langue après un changement. */
 
     } catch (error) {
 
