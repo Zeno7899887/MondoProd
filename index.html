@@ -826,8 +826,6 @@
 
   function destroyInnerBook() {
 
-    currentRenderToken += 1;
-
 
     if (
       pageFlip
@@ -1019,10 +1017,6 @@
     }
 
 
-    const token =
-      currentRenderToken;
-
-
     entry.rendering =
       (async function () {
 
@@ -1030,15 +1024,6 @@
           await pdf.getPage(
             pdfPageNumber
           );
-
-
-        if (
-          token !== currentRenderToken
-        ) {
-
-          return;
-
-        }
 
 
         const base =
@@ -1152,17 +1137,11 @@
         }).promise;
 
 
-        if (
-          token === currentRenderToken
-        ) {
+        entry.rendered =
+          true;
 
-          entry.rendered =
-            true;
-
-          entry.renderSize =
-            renderKey;
-
-        }
+        entry.renderSize =
+          renderKey;
 
       })();
 
