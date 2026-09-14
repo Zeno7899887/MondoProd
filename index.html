@@ -53,8 +53,6 @@
     transform:translateY(0);
     transition:background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
     pointer-events:auto;
-    touch-action:manipulation;
-    -webkit-tap-highlight-color:transparent;
   }
   .lang-btn::after {
     content:attr(aria-label);
@@ -246,7 +244,7 @@
   #catalogue-reader:fullscreen { width:100vw; max-width:none; height:100vh; background:#fff; display:flex; flex-direction:column; justify-content:center; padding:12px 14px; }
   #catalogue-reader:fullscreen #book-area { flex:1 1 auto; min-height:0; }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 900px) {
     #catalogue-reader { padding-left:8px; padding-right:8px; }
     #book-area { padding:0 92px; min-height:0; }
     #book { width:min(100%, 1040px); }
@@ -256,33 +254,12 @@
     #last-page { right:0; }
   }
 
-  @media (max-width: 1024px) {
-    /* Tablette + téléphone : vraie page unique, toujours centrée. */
-    #book-area {
-      padding-left:72px;
-      padding-right:72px;
-      min-height:0;
-    }
-    #book {
-      width:min(88vw, 560px);
-      max-width:560px;
-      aspect-ratio:1 / 1.41421356;
-      margin-left:auto !important;
-      margin-right:auto !important;
-    }
-    .book-arrow { width:42px; height:42px; font-size:28px; }
-    #first-page { left:4px; }
-    #prev-page { left:48px; }
-    #next-page { right:48px; }
-    #last-page { right:4px; }
-  }
-
   @media (max-width: 700px) {
     #catalogue-languages { gap:6px; margin-bottom:10px; }
     .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
     .lang-btn::after { font-size:10px; }
-    #book-area { padding:0 58px; }
-    #book { width:min(90vw, 470px); aspect-ratio:1 / 1.41421356; max-width:470px; margin-left:auto !important; margin-right:auto !important; }
+    #book-area { padding:0 66px; }
+    #book { width:min(92vw, 470px); aspect-ratio:1 / 1.41421356; max-width:470px; margin-left:auto !important; margin-right:auto !important; }
     .book-arrow { width:40px; height:40px; font-size:27px; }
     #first-page { left:0; }
     #prev-page { left:40px; }
@@ -728,20 +705,12 @@
      ======================================================== */
 
   function isMobileView() {
-    try {
-      return window.matchMedia("(max-width: 1024px)").matches;
-    } catch (error) {
-      return window.innerWidth <= 1024;
-    }
+    return window.matchMedia("(max-width: 700px)").matches;
   }
 
   function getRenderTargetWidth() {
 
-    const rect = bookElement.getBoundingClientRect();
-    const fallbackWidth = isMobileView()
-      ? Math.min(window.innerWidth * 0.90, 470)
-      : Math.min(window.innerWidth * 0.82, 1160);
-    const bookWidth = bookElement.clientWidth || rect.width || fallbackWidth;
+    const bookWidth = bookElement.clientWidth || 1120;
     const cssPageWidth = isMobileView() ? bookWidth : bookWidth / 2;
     const multiplier = Math.min(4.0, Math.max(2.8, window.devicePixelRatio * 1.8 + 1.4));
 
@@ -1042,18 +1011,7 @@
 
     requestAnimationFrame(function () {
       applyReaderScale();
-      if (pageFlip) {
-        try { pageFlip.update(); } catch (error) {}
-      }
       updateCounter();
-      positionCornerLayer();
-      setTimeout(function() {
-        if (pageFlip) {
-          try { pageFlip.update(); } catch (error) {}
-        }
-        applyReaderScale();
-        positionCornerLayer();
-      }, 60);
     });
 
   }
@@ -1454,49 +1412,33 @@
      DRAPEAUX
      ======================================================== */
 
-  /*
-     Boutons de langue : un seul chemin pour FR / EN / IT / ES.
-     On écoute en capture afin qu'aucun événement d'un élément enfant ou
-     d'une interaction tactile du lecteur puisse empêcher le bouton d'être
-     traité. Le petit verrou évite le double déclenchement tactile/click.
-  */
-  let lastLanguagePointerAt = 0;
-  let lastLanguagePointerLang = "";
+  languageButtons.forEach(
+    function (button) {
 
-  function handleLanguageButton(button, event) {
-    if (!button) return;
-    const language = String(button.dataset.lang || "").toLowerCase();
-    if (!catalogues[language]) return;
+      button.addEventListener(
+        "click",
+        function (event) {
 
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.type === "pointerdown") {
-        lastLanguagePointerAt = Date.now();
-        lastLanguagePointerLang = language;
-      } else if (event.type === "click" &&
-                 lastLanguagePointerLang === language &&
-                 Date.now() - lastLanguagePointerAt < 700) {
-        /* Le pointerdown a déjà lancé le chargement. */
-        return;
-      }
+          event.preventDefault();
+          event.stopPropagation();
+
+          const requestedLanguage = button.dataset.lang;
+
+          if (!catalogues[requestedLanguage]) {
+            return;
+          }
+
+          if (requestedLanguage === activeLanguage && pdf && !loadingCatalogue) {
+            return;
+          }
+
+          loadCatalogue(requestedLanguage);
+
+        }
+      );
+
     }
-
-    /* Même FR passe toujours par loadCatalogue(), exactement comme les autres. */
-    if (language === activeLanguage && pdf && !loadingCatalogue) return;
-    loadCatalogue(language);
-  }
-
-  languageButtons.forEach(function(button) {
-    button.addEventListener("pointerdown", function(event) {
-      if (event.pointerType === "mouse" && event.button !== 0) return;
-      handleLanguageButton(button, event);
-    }, {capture:true});
-
-    button.addEventListener("click", function(event) {
-      handleLanguageButton(button, event);
-    }, {capture:true});
-  });
+  );
 
 
   /* ========================================================
