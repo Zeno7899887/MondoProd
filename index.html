@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V17</title>
+<title>Mondo Prod — Catalogue V18</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -1004,6 +1004,52 @@
   }
 
 
+  /* Navigation robustesse : une commande demandée pendant une
+     animation est mémorisée et exécutée dès que PageFlip redevient
+     disponible. La dernière commande gagne, ce qui évite tout blocage. */
+  let pendingNavigation = null;
+
+  function pageFlipIsFlipping() {
+    if (!pageFlip || typeof pageFlip.getState !== "function") return false;
+    try {
+      return String(pageFlip.getState()) === "flipping";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function runOrQueueNavigation(command) {
+    if (!pageFlip) return;
+
+    if (pageFlipIsFlipping()) {
+      pendingNavigation = command;
+      return;
+    }
+
+    pendingNavigation = null;
+    try {
+      command();
+    } catch (error) {
+      console.warn("Navigation PageFlip :", error);
+    }
+  }
+
+  function flushPendingNavigation() {
+    if (!pageFlip || !pendingNavigation || pageFlipIsFlipping()) return;
+
+    const command = pendingNavigation;
+    pendingNavigation = null;
+
+    requestAnimationFrame(function () {
+      if (!pageFlip) return;
+      try {
+        command();
+      } catch (error) {
+        console.warn("Navigation PageFlip :", error);
+      }
+    });
+  }
+
   function attachPageFlipEvents() {
 
     if (!pageFlip) {
@@ -1048,6 +1094,9 @@
 
         if (state === 'read') {
           showPagesUnderCover();
+          updateCounter();
+          flushPendingNavigation();
+          return;
         }
 
         updateCounter();
@@ -1087,6 +1136,7 @@
     */
     const requestId = ++loadRequestId;
     activeLoadRequestId = requestId;
+    pendingNavigation = null;
 
     activeLanguage = language;
     document.documentElement.dataset.catalogueReady = "false";
@@ -1108,29 +1158,27 @@
       pdf = null;
       clearRenderedPages();
 
-      const pdfUrl = catalogues[language] + "?v=" + encodeURIComponent(language) + "-20270914";
+      /*
+        IMPORTANT : on charge directement l'URL GitHub Pages avec PDF.js.
+        On évite fetch()+arrayBuffer() et le paramètre ?v=... qui peuvent
+        provoquer des problèmes de cache/CORS selon l'hébergement du site.
+      */
+      const pdfUrl = catalogues[language];
 
-      const response = await fetch(
-        pdfUrl,
-        {
-          cache: "force-cache",
-          credentials: "omit"
-        }
-      );
+      const loadingTask = pdfjsLib.getDocument({
+        url: pdfUrl,
+        disableAutoFetch: false,
+        disableStream: false,
+        disableRange: false,
+        cMapPacked: true
+      });
 
-      if (requestId !== activeLoadRequestId) return;
+      const loadedPdf = await loadingTask.promise;
 
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " + response.status + " — " + catalogues[language]
-        );
+      if (requestId !== activeLoadRequestId) {
+        try { await loadedPdf.destroy(); } catch (error) {}
+        return;
       }
-
-      const data = await response.arrayBuffer();
-
-      if (requestId !== activeLoadRequestId) return;
-
-      const loadedPdf = await pdfjsLib.getDocument({ data: data }).promise;
 
       if (requestId !== activeLoadRequestId) {
         try { loadedPdf.destroy(); } catch (error) {}
@@ -1192,9 +1240,17 @@
           event.preventDefault();
           event.stopPropagation();
 
-          loadCatalogue(
-            button.dataset.lang
-          );
+          const requestedLanguage = button.dataset.lang;
+
+          if (!catalogues[requestedLanguage]) {
+            return;
+          }
+
+          if (requestedLanguage === activeLanguage && pdf) {
+            return;
+          }
+
+          loadCatalogue(requestedLanguage);
 
         }
       );
@@ -1210,9 +1266,10 @@
   firstButton.addEventListener(
     "click",
     function () {
-      if (pageFlip) {
-        try { pageFlip.turnToPage(0); } catch (error) { console.warn(error); }
-      }
+      runOrQueueNavigation(function () {
+        if (!pageFlip) return;
+        pageFlip.turnToPage(0);
+      });
     }
   );
 
@@ -1220,11 +1277,10 @@
   lastButton.addEventListener(
     "click",
     function () {
-      if (pageFlip && pdf) {
-        try {
-          pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
-        } catch (error) { console.warn(error); }
-      }
+      runOrQueueNavigation(function () {
+        if (!pageFlip || !pdf) return;
+        pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
+      });
     }
   );
 
@@ -1232,18 +1288,11 @@
   prevButton.addEventListener(
     "click",
     function () {
-
-      if (
-        pageFlip
-      ) {
-
+      runOrQueueNavigation(function () {
+        if (!pageFlip) return;
         preloadAround(Math.max(0, pageFlip.getCurrentPageIndex() - 2));
-        pageFlip.flipPrev(
-          "bottom"
-        );
-
-      }
-
+        pageFlip.flipPrev("bottom");
+      });
     }
   );
 
@@ -1251,18 +1300,11 @@
   nextButton.addEventListener(
     "click",
     function () {
-
-      if (
-        pageFlip
-      ) {
-
+      runOrQueueNavigation(function () {
+        if (!pageFlip) return;
         preloadAround(Math.min((pdf ? pdf.numPages - 1 : 0), pageFlip.getCurrentPageIndex() + 2));
-        pageFlip.flipNext(
-          "bottom"
-        );
-
-      }
-
+        pageFlip.flipNext("bottom");
+      });
     }
   );
 
