@@ -403,12 +403,7 @@
       +
     </button>
 
-    <button
-      id="fullscreen"
-      type="button"
-      aria-label="Plein écran">
-      ⛶
-    </button>
+
 
   </div>
 
@@ -495,9 +490,6 @@
 
   const lastButton =
     document.getElementById("last-page");
-
-  const fullscreenButton =
-    document.getElementById("fullscreen");
 
   const zoomInButton =
     document.getElementById("zoom-in");
@@ -1458,7 +1450,7 @@
   function bookPointFromPointer(event) {
     const rect = bookElement.getBoundingClientRect();
 
-    // Le livre est agrandi par CSS (zoom par défaut 1.02).
+    // Le livre est agrandi par CSS (zoom par défaut 0.94).
     // PageFlip attend des coordonnées dans sa taille NON transformée.
     // On reconvertit donc les coordonnées écran vers les coordonnées
     // internes de PageFlip afin que le geste de coin reste parfaitement
@@ -1599,7 +1591,7 @@
      ZOOM
      ======================================================== */
 
-  let readerScale = 1.02;
+  let readerScale = 0.94;
 
   function applyReaderScale() {
     bookElement.style.transform =
@@ -1615,7 +1607,7 @@
 
       readerScale =
         Math.min(
-          1.02,
+          0.94,
           readerScale + .04
         );
 
