@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V31</title>
+<title>Mondo Prod — Catalogue V33</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -476,8 +476,8 @@
   /* Pages préparées avant toute interaction utilisateur. */
   let readyPromise = Promise.resolve();
 
-  /* Cache des documents PDF par langue pour rendre le switch beaucoup plus rapide. */
-  const pdfDocumentCache = new Map();
+  /* Cache binaire des PDF par langue. On recrée un PDFDocumentProxy propre
+     à chaque affichage pour éviter les états/rendus persistants de PDF.js. */
   const pdfDataCache = new Map();
   const pdfPrefetchPromises = new Map();
   const renderedImageCache = new Map();
@@ -1208,131 +1208,91 @@
   }
 
   /* ========================================================
-     CACHE DES PDF PAR LANGUE — SIMPLE ET RAPIDE
+     CACHE DES PDF PAR LANGUE — RAPIDE ET SÛR
      ======================================================== */
 
-  async function getCachedPdfDocument(language) {
+  async function getPdfArrayBuffer(language) {
 
-    if (pdfDocumentCache.has(language)) {
-      return pdfDocumentCache.get(language);
+    if (pdfDataCache.has(language)) {
+      return pdfDataCache.get(language);
+    }
+
+    if (pdfPrefetchPromises.has(language)) {
+      return pdfPrefetchPromises.get(language);
     }
 
     const url = catalogues[language];
-    if (!url) {
-      throw new Error('Langue de catalogue inconnue.');
-    }
+    if (!url) throw new Error('Langue de catalogue inconnue.');
 
-    /*
-       On laisse PDF.js charger directement l'URL du PDF.
-       Cela permet à PDF.js d'utiliser son chargement progressif/range,
-       au lieu de télécharger systématiquement tout le fichier avant de
-       pouvoir commencer à l'afficher.
-    */
-    const loadingTask = pdfjsLib.getDocument({
-      url: url,
+    const promise = fetch(url, {
+      method: 'GET',
+      cache: 'force-cache',
+      credentials: 'omit'
+    })
+      .then(function(response) {
+        if (!response.ok) throw new Error('HTTP ' + response.status + ' — ' + url);
+        return response.arrayBuffer();
+      })
+      .then(function(data) {
+        pdfDataCache.set(language, data);
+        return data;
+      })
+      .finally(function() {
+        pdfPrefetchPromises.delete(language);
+      });
+
+    pdfPrefetchPromises.set(language, promise);
+    return promise;
+  }
+
+  async function getFreshPdfDocument(language) {
+    const source = await getPdfArrayBuffer(language);
+    const dataCopy = source.slice(0);
+
+    return pdfjsLib.getDocument({
+      data: new Uint8Array(dataCopy),
       disableAutoFetch: false,
       disableStream: false,
       disableRange: false,
       cMapPacked: true
-    });
-
-    const promise = loadingTask.promise.catch(function(error) {
-      pdfDocumentCache.delete(language);
-      throw error;
-    });
-
-    pdfDocumentCache.set(language, promise);
-    return promise;
+    }).promise;
   }
 
+  function prefetchOtherPdfData(currentLanguage) {
+    Object.keys(catalogues).forEach(function(language) {
+      if (language === currentLanguage) return;
+      getPdfArrayBuffer(language).catch(function(error) {
+        console.warn('Préchargement PDF ' + language + ' :', error);
+      });
+    });
+  }
 
   async function warmOtherLanguages(currentLanguage) {
-
-    /*
-       Précharge les trois autres PDF immédiatement en arrière-plan.
-       On ne rend d'abord que leurs couvertures + premières pages :
-       le changement de langue peut ainsi devenir quasi instantané après
-       le premier chargement.
-    */
     const languages = Object.keys(catalogues).filter(function(language) {
       return language !== currentLanguage;
     });
 
+    prefetchOtherPdfData(currentLanguage);
+
     await Promise.all(languages.map(async function(language) {
-
+      let otherPdf = null;
       try {
-
-        const otherPdf = await getCachedPdfDocument(language);
-        if (!otherPdf) return;
-
+        otherPdf = await getFreshPdfDocument(language);
         const cache = getLanguageImageCache(language);
-        const wanted = [0, 1, 2, 3].filter(function(index) {
-          return index < otherPdf.numPages && !cache.has(index);
-        });
 
-        if (!wanted.length) return;
-
-        /* Les rendus d'une langue en arrière-plan utilisent uniquement des
-           canvas temporaires différents : aucun conflit de canvas. */
-        for (const index of wanted) {
-          if (cache.has(index)) continue;
+        for (const index of [0, 1, 2, 3]) {
+          if (index >= otherPdf.numPages || cache.has(index)) continue;
           await renderLanguageImage(otherPdf, language, index);
         }
-
       } catch (error) {
         console.warn('Préchargement langue ' + language + ' :', error);
+      } finally {
+        try {
+          if (otherPdf && typeof otherPdf.destroy === 'function') await otherPdf.destroy();
+        } catch (error) {}
       }
-
     }));
   }
-
-
-  async function renderLanguageImage(otherPdf, language, index) {
-
-    const cache = getLanguageImageCache(language);
-    if (cache.has(index)) return cache.get(index);
-
-    const pdfPage = await otherPdf.getPage(index + 1);
-    const baseViewport = pdfPage.getViewport({ scale: 1 });
-
-    const targetWidth = Math.min(
-      3000,
-      Math.max(
-        1900,
-        Math.ceil(
-          (bookElement.clientWidth || 700) *
-          (isMobileView() ? 3.2 : 2.0)
-        )
-      )
-    );
-
-    const viewport = pdfPage.getViewport({
-      scale: targetWidth / baseViewport.width
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-
-    const context = canvas.getContext('2d', { alpha:false });
-    if (!context) return null;
-
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-
-    await pdfPage.render({
-      canvasContext: context,
-      viewport: viewport,
-      intent: 'display'
-    }).promise;
-
-    const blob = await canvasToPngBlob(canvas);
-    const url = URL.createObjectURL(blob);
-    cache.set(index, url);
-
-    return url;
-  }
-
 
   /* ========================================================
      CHARGER UN CATALOGUE
@@ -1417,6 +1377,12 @@
         try { previousPageFlip.destroy(); } catch (error) {}
       }
 
+      if (previousPdf && previousPdf !== loadedPdf) {
+        try {
+          if (typeof previousPdf.destroy === 'function') previousPdf.destroy();
+        } catch (error) {}
+      }
+
     } catch (error) {
 
       if (requestId !== activeLoadRequestId) return;
@@ -1440,93 +1406,93 @@
 
 
   /* ========================================================
-     DRAPEAUX — UN SEUL HANDLER, DÉCLENCHÉ AU CLIC
+     DRAPEAUX — POINTERUP + CLICK DE SECOURS
      ======================================================== */
 
+  let ignoreLanguageClickUntil = 0;
+
+  function selectLanguageFromButton(button) {
+    const nextLanguage = button.dataset.lang;
+    if (!catalogues[nextLanguage]) return;
+    if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) return;
+
+    ignoreLanguageClickUntil = Date.now() + 650;
+    loadCatalogue(nextLanguage);
+  }
+
   languageButtons.forEach(function(button) {
-
-    button.addEventListener('click', function(event) {
-
+    button.addEventListener('pointerup', function(event) {
       event.preventDefault();
       event.stopPropagation();
-
-      const nextLanguage = button.dataset.lang;
-      if (!catalogues[nextLanguage]) return;
-
-      /*
-         requestedLanguage est utilisé plutôt que activeLanguage :
-         cela permet de cliquer immédiatement sur une autre langue
-         pendant qu'une première transition est encore en cours.
-      */
-      if (nextLanguage === requestedLanguage && loadingCatalogue) {
-        return;
-      }
-
-      if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) {
-        return;
-      }
-
-      loadCatalogue(nextLanguage);
-
+      selectLanguageFromButton(button);
     }, { capture:true });
 
+    button.addEventListener('click', function(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (Date.now() < ignoreLanguageClickUntil) return;
+      selectLanguageFromButton(button);
+    }, { capture:true });
   });
 
 
   /* ========================================================
-     COINS INTERACTIFS — pont direct vers l'API utilisateur PageFlip
+     COINS INTERACTIFS — MÊMES COORDONNÉES QUE PAGEFLIP
      ======================================================== */
 
   let cornerPointerActive = false;
   let cornerPointerId = null;
 
-  function getBookPoint(event) {
-    const rect = bookElement.getBoundingClientRect();
-    return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top
-    };
+  function getBookPointFromPageFlip(event) {
+    if (!pageFlip) return { x:0, y:0 };
+    const distElement = pageFlip.getUI().getDistElement();
+    const rect = distElement.getBoundingClientRect();
+    return { x:event.clientX - rect.left, y:event.clientY - rect.top };
   }
 
-  function pointIsCorner(point) {
-    const rect = bookElement.getBoundingClientRect();
-    const corner = Math.max(58, Math.min(90, rect.width * 0.08));
-    const nearTop = point.y <= corner;
-    const nearBottom = point.y >= rect.height - corner;
-    const nearLeft = point.x <= corner;
-    const nearRight = point.x >= rect.width - corner;
-    return (nearTop || nearBottom) && (nearLeft || nearRight);
+  function pointIsPageFlipCorner(point) {
+    if (!pageFlip) return false;
+    const rect = pageFlip.getBoundsRect();
+    const operatingDistance = Math.sqrt(rect.pageWidth * rect.pageWidth + rect.height * rect.height) / 5;
+    return (
+      point.x > 0 && point.y > 0 &&
+      point.x < rect.width && point.y < rect.height &&
+      (point.x < operatingDistance || point.x > rect.width - operatingDistance) &&
+      (point.y < operatingDistance || point.y > rect.height - operatingDistance)
+    );
   }
 
   function pointerOnCorner(event) {
     if (!pageFlip || pageFlipIsFlipping()) return;
-    if (event.target.closest && (event.target.closest('.book-arrow') || event.target.closest('.lang-btn'))) return;
-    const point = getBookPoint(event);
-    if (!pointIsCorner(point)) return;
+    if (event.target && event.target.closest && event.target.closest('.lang-btn')) return;
+
+    const point = getBookPointFromPageFlip(event);
+    if (!pointIsPageFlipCorner(point)) return;
 
     cornerPointerActive = true;
     cornerPointerId = event.pointerId;
-    try { bookElement.setPointerCapture(event.pointerId); } catch (e) {}
-    try { pageFlip.startUserTouch(point); } catch (e) {}
+
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch (error) {}
+    pageFlip.startUserTouch(point);
     event.preventDefault();
     event.stopPropagation();
   }
 
   function pointerMoveCorner(event) {
     if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
-    const point = getBookPoint(event);
-    try { pageFlip.userMove(point, event.pointerType === 'touch'); } catch (e) {}
+    const point = getBookPointFromPageFlip(event);
+    pageFlip.userMove(point, event.pointerType === 'touch');
     event.preventDefault();
     event.stopPropagation();
   }
 
   function pointerUpCorner(event) {
     if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
-    const point = getBookPoint(event);
+    const point = getBookPointFromPageFlip(event);
     cornerPointerActive = false;
     cornerPointerId = null;
-    try { pageFlip.userStop(point, false); } catch (e) {}
-    try { bookElement.releasePointerCapture(event.pointerId); } catch (e) {}
+    pageFlip.userStop(point, false);
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (error) {}
     event.preventDefault();
     event.stopPropagation();
   }
@@ -1536,68 +1502,62 @@
   bookElement.addEventListener('pointerup', pointerUpCorner, true);
   bookElement.addEventListener('pointercancel', pointerUpCorner, true);
 
+
   /* ========================================================
-     FLÈCHES
+     FLÈCHES — SANS ATTENDRE LE PRÉCHARGEMENT
      ======================================================== */
 
-  firstButton.addEventListener(
-    "click",
-    function () {
-      runOrQueueNavigation(function () {
-        if (!pageFlip) return;
-        pageFlip.turnToPage(0);
-      });
-    }
-  );
+  function programmaticFlip(method, corner) {
+    if (!pageFlip || pageFlipIsFlipping()) return;
 
+    const settings = pageFlip.getSettings();
+    const previousValue = settings.disableFlipByClick;
+    settings.disableFlipByClick = false;
 
-  lastButton.addEventListener(
-    "click",
-    function () {
-      runOrQueueNavigation(function () {
-        if (!pageFlip || !pdf) return;
-        pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
-      });
-    }
-  );
-
-
-  prevButton.addEventListener(
-    "click",
-    async function () {
-      if (!pageFlip || !pdf) return;
-      const current = pageFlip.getCurrentPageIndex();
-      const target = Math.max(0, current - 2);
-      if (pageFlipIsFlipping()) {
-        pendingNavigation = async function () {
-          await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
-          if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
-        };
-        return;
+    try {
+      if (typeof pageFlip[method] === 'function') {
+        pageFlip[method](corner);
       }
-      await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
-      if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
+    } catch (error) {
+      console.warn('Navigation PageFlip :', error);
+    } finally {
+      settings.disableFlipByClick = previousValue;
     }
-  );
+  }
 
+  firstButton.addEventListener('click', function() {
+    runOrQueueNavigation(function() {
+      if (pageFlip) pageFlip.turnToPage(0);
+    });
+  });
 
-  nextButton.addEventListener(
-    "click",
-    async function () {
-      if (!pageFlip || !pdf) return;
-      const current = pageFlip.getCurrentPageIndex();
-      const target = Math.min(pdf.numPages - 1, current + 2);
-      if (pageFlipIsFlipping()) {
-        pendingNavigation = async function () {
-          await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
-          if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
-        };
-        return;
-      }
-      await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
-      if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
+  lastButton.addEventListener('click', function() {
+    runOrQueueNavigation(function() {
+      if (pageFlip && pdf) pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
+    });
+  });
+
+  prevButton.addEventListener('click', function() {
+    if (!pageFlip || !pdf) return;
+    if (pageFlipIsFlipping()) {
+      pendingNavigation = function() {
+        if (pageFlip && !pageFlipIsFlipping()) programmaticFlip('flipPrev', 'bottom');
+      };
+      return;
     }
-  );
+    programmaticFlip('flipPrev', 'bottom');
+  });
+
+  nextButton.addEventListener('click', function() {
+    if (!pageFlip || !pdf) return;
+    if (pageFlipIsFlipping()) {
+      pendingNavigation = function() {
+        if (pageFlip && !pageFlipIsFlipping()) programmaticFlip('flipNext', 'bottom');
+      };
+      return;
+    }
+    programmaticFlip('flipNext', 'bottom');
+  });
 
 
   /* ========================================================
