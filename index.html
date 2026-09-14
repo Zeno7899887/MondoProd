@@ -1265,14 +1265,26 @@
   }
 
   function prefetchOtherCatalogues(currentLanguage) {
-    Object.keys(catalogues).forEach(function(language) {
-      if (language !== currentLanguage) {
-        /* On précharge uniquement les données binaires.
-           Le document PDF.js sera créé frais à chaque affichage.
-           Cela évite de réutiliser un PDFDocumentProxy qui peut avoir
-           conservé un état interne après un changement de langue. */
-        getCatalogueBuffer(language).catch(function() {});
-      }
+    /*
+       IMPORTANT : le préchargement ne doit jamais concurrencer le chargement
+       d'un changement de langue. On prépare uniquement les langues qui ne
+       sont pas encore en cache, une par une, et surtout jamais le Français
+       après qu'une autre langue vient d'être ouverte.
+
+       Le catalogue FR est le catalogue de référence et doit rester totalement
+       indépendant des téléchargements en arrière-plan.
+    */
+    const languages = Object.keys(catalogues).filter(function(language) {
+      return language !== currentLanguage && language !== 'fr' &&
+             !catalogueBufferPromises.has(language);
+    });
+
+    let chain = Promise.resolve();
+
+    languages.forEach(function(language) {
+      chain = chain.then(function() {
+        return getCatalogueBuffer(language).catch(function() {});
+      });
     });
   }
 
