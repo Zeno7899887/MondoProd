@@ -1,19 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mondo Prod — Catalogue</title>
 
 <style>
-  :root {
-    --reader-width: min(1100px, 94vw);
-  }
-
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
   html, body {
     margin: 0;
@@ -23,6 +16,7 @@
 
   body {
     font-family: Arial, Helvetica, sans-serif;
+    overflow-x: hidden;
   }
 
   #catalogue-reader {
@@ -30,6 +24,7 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 0;
+    text-align: center;
   }
 
   /* =========================
@@ -47,8 +42,10 @@
   .lang-btn {
     appearance: none;
     border: 0;
+    outline: none;
     background: transparent;
-    padding: 3px;
+    padding: 2px;
+    margin: 0;
     font-size: 40px;
     line-height: 1;
     cursor: pointer;
@@ -58,7 +55,7 @@
   }
 
   .lang-btn:hover {
-    opacity: .85;
+    opacity: .9;
     transform: scale(1.08);
   }
 
@@ -73,17 +70,16 @@
 
   #book-area {
     position: relative;
-    width: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
+    width: 100%;
     padding: 0 58px;
   }
 
   #book {
     position: relative;
-    width: var(--reader-width);
-    max-width: 1100px;
+    width: min(1080px, 100%);
     aspect-ratio: 1.414 / 1;
     perspective: 1800px;
   }
@@ -92,17 +88,17 @@
     position: absolute;
     inset: 0;
     display: flex;
-    overflow: hidden;
-    box-shadow: 0 20px 50px rgba(0,0,0,.18);
     background: #fff;
+    overflow: hidden;
+    box-shadow: 0 18px 48px rgba(0,0,0,.18);
   }
 
   .page {
+    position: relative;
     width: 50%;
     height: 100%;
     overflow: hidden;
     background: #fff;
-    position: relative;
   }
 
   .page canvas {
@@ -112,62 +108,65 @@
     background: #fff;
   }
 
+  #left-page {
+    box-shadow: inset -10px 0 18px -18px rgba(0,0,0,.55);
+  }
+
+  #right-page {
+    box-shadow: inset 10px 0 18px -18px rgba(0,0,0,.55);
+  }
+
   #seam {
     position: absolute;
-    z-index: 5;
-    left: 50%;
     top: 0;
     bottom: 0;
+    left: 50%;
     width: 12px;
     transform: translateX(-50%);
+    z-index: 5;
     pointer-events: none;
     background: linear-gradient(
       to right,
       rgba(0,0,0,.08),
-      rgba(255,255,255,.36),
+      rgba(255,255,255,.34),
       rgba(0,0,0,.08),
       transparent
     );
   }
 
   /* =========================
-     PAGE TURN
+     PAGE TOURNEE
      ========================= */
 
-  .turn {
+  #flip-page {
     display: none;
     position: absolute;
     top: 0;
+    right: 0;
     width: 50%;
     height: 100%;
     z-index: 20;
+    transform-origin: left center;
     transform-style: preserve-3d;
+    backface-visibility: hidden;
     pointer-events: none;
   }
 
-  .turn.right {
-    right: 0;
-    transform-origin: left center;
-  }
-
-  .turn.left {
-    left: 0;
-    transform-origin: right center;
-  }
-
-  .turn-face {
+  #flip-front,
+  #flip-back {
     position: absolute;
     inset: 0;
-    background: #fff;
     overflow: hidden;
+    background: #fff;
     backface-visibility: hidden;
   }
 
-  .turn-face.back {
+  #flip-back {
     transform: rotateY(180deg);
   }
 
-  .turn-face canvas {
+  #flip-front canvas,
+  #flip-back canvas {
     display: block;
     width: 100%;
     height: 100%;
@@ -198,7 +197,7 @@
 
     cursor: pointer;
 
-    transition: transform .18s ease, background .18s ease, opacity .18s ease;
+    transition: background .18s ease, transform .18s ease, opacity .18s ease;
   }
 
   .book-arrow:hover {
@@ -212,13 +211,8 @@
     transform: translateY(-50%);
   }
 
-  #prev-page {
-    left: 4px;
-  }
-
-  #next-page {
-    right: 4px;
-  }
+  #prev-page { left: 4px; }
+  #next-page { right: 4px; }
 
   /* =========================
      CONTROLES
@@ -229,12 +223,13 @@
     justify-content: center;
     align-items: center;
     gap: 8px;
-    margin-top: 14px;
+    margin: 14px 0 0;
   }
 
   #reader-controls button {
     appearance: none;
     border: 0;
+    outline: none;
     background: transparent;
     padding: 6px 9px;
     font-size: 22px;
@@ -247,18 +242,19 @@
   }
 
   #page-number {
-    min-width: 86px;
+    min-width: 96px;
     text-align: center;
     font-size: 14px;
+    font-variant-numeric: tabular-nums;
   }
 
   #status {
     display: none;
     margin: 18px auto;
-    max-width: 90%;
-    text-align: center;
+    max-width: 92%;
     color: #666;
     font-size: 14px;
+    line-height: 1.45;
   }
 
   /* =========================
@@ -284,7 +280,11 @@
       aspect-ratio: 1 / 1.414;
     }
 
-    #spread .page {
+    #spread {
+      display: block;
+    }
+
+    .page {
       width: 100%;
     }
 
@@ -294,16 +294,30 @@
 
     #right-page {
       display: block;
+      box-shadow: none;
     }
 
     #seam {
       display: none;
     }
 
+    #flip-page {
+      width: 100%;
+    }
+
     .book-arrow {
       width: 44px;
       height: 44px;
       font-size: 30px;
+    }
+
+    #prev-page { left: 2px; }
+    #next-page { right: 2px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #flip-page {
+      transition: none !important;
     }
   }
 </style>
@@ -313,11 +327,11 @@
 
 <div id="catalogue-reader">
 
-  <div id="catalogue-languages" aria-label="Langue du catalogue">
-    <button class="lang-btn" data-lang="fr" type="button">🇫🇷</button>
-    <button class="lang-btn" data-lang="en" type="button">🇬🇧</button>
-    <button class="lang-btn" data-lang="it" type="button">🇮🇹</button>
-    <button class="lang-btn" data-lang="es" type="button">🇪🇸</button>
+  <div id="catalogue-languages" aria-label="Choisir la langue du catalogue">
+    <button class="lang-btn" data-lang="fr" type="button" aria-label="Français">🇫🇷</button>
+    <button class="lang-btn" data-lang="en" type="button" aria-label="English">🇬🇧</button>
+    <button class="lang-btn" data-lang="it" type="button" aria-label="Italiano">🇮🇹</button>
+    <button class="lang-btn" data-lang="es" type="button" aria-label="Español">🇪🇸</button>
   </div>
 
   <div id="book-area">
@@ -338,21 +352,12 @@
         <div id="seam"></div>
       </div>
 
-      <div id="turn-right" class="turn right">
-        <div class="turn-face">
-          <canvas id="turn-right-front"></canvas>
+      <div id="flip-page" aria-hidden="true">
+        <div id="flip-front">
+          <canvas id="flip-front-canvas"></canvas>
         </div>
-        <div class="turn-face back">
-          <canvas id="turn-right-back"></canvas>
-        </div>
-      </div>
-
-      <div id="turn-left" class="turn left">
-        <div class="turn-face">
-          <canvas id="turn-left-front"></canvas>
-        </div>
-        <div class="turn-face back">
-          <canvas id="turn-left-back"></canvas>
+        <div id="flip-back">
+          <canvas id="flip-back-canvas"></canvas>
         </div>
       </div>
 
@@ -373,7 +378,11 @@
 
 </div>
 
-<!-- PDF.js sans modules : plus robuste sur GitHub Pages -->
+
+<!-- =========================================================
+     PDF.JS
+     ========================================================= -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <script>
@@ -381,23 +390,44 @@
 
   "use strict";
 
+  /* ========================================================
+     CONFIGURATION PDF
+     ======================================================== */
+
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
+
   /*
-    Les PDF sont bien À LA RACINE de ton repository.
-    Donc aucun dossier "catalogues".
+    URLS PUBLIQUES EXACTES DE TON GITHUB PAGES.
+    Les PDF sont à la racine du repository.
   */
+
   const catalogues = {
-    fr: "https://zeno7899887.github.io/MondoProd/catalogue-fr.pdf",
-    en: "https://zeno7899887.github.io/MondoProd/catalogue-en.pdf",
-    it: "https://zeno7899887.github.io/MondoProd/catalogue-it.pdf",
-    es: "https://zeno7899887.github.io/MondoProd/catalogue-es.pdf"
+
+    fr:
+      "https://zeno7899887.github.io/MondoProd/catalogue-fr.pdf",
+
+    en:
+      "https://zeno7899887.github.io/MondoProd/catalogue-en.pdf",
+
+    it:
+      "https://zeno7899887.github.io/MondoProd/catalogue-it.pdf",
+
+    es:
+      "https://zeno7899887.github.io/MondoProd/catalogue-es.pdf"
+
   };
 
-  const buttons = Array.from(
-    document.querySelectorAll(".lang-btn")
-  );
+
+  /* ========================================================
+     ÉLÉMENTS
+     ======================================================== */
+
+  const buttons =
+    Array.from(
+      document.querySelectorAll(".lang-btn")
+    );
 
   const leftCanvas =
     document.getElementById("left-canvas");
@@ -405,11 +435,14 @@
   const rightCanvas =
     document.getElementById("right-canvas");
 
-  const pageNumber =
-    document.getElementById("page-number");
+  const flipPage =
+    document.getElementById("flip-page");
 
-  const status =
-    document.getElementById("status");
+  const flipFrontCanvas =
+    document.getElementById("flip-front-canvas");
+
+  const flipBackCanvas =
+    document.getElementById("flip-back-canvas");
 
   const leftPage =
     document.getElementById("left-page");
@@ -423,53 +456,43 @@
   const nextButton =
     document.getElementById("next-page");
 
-  const turnRight =
-    document.getElementById("turn-right");
+  const pageNumber =
+    document.getElementById("page-number");
 
-  const turnLeft =
-    document.getElementById("turn-left");
+  const status =
+    document.getElementById("status");
+
+  const reader =
+    document.getElementById("catalogue-reader");
+
+
+  /* ========================================================
+     ÉTAT
+     ======================================================== */
 
   let pdf = null;
-  let currentPage = 1;
-  let zoom = 1;
-  let busy = false;
+
   let activeLanguage = "fr";
 
+  let current = 1;
+
+  let zoom = 1;
+
+  let busy = false;
+
+
+  /* ========================================================
+     UTILITAIRES
+     ======================================================== */
+
   function isMobile() {
+
     return window.matchMedia(
       "(max-width: 700px)"
     ).matches;
-  }
-
-  function detectLanguage() {
-
-    let lang =
-      (
-        document.documentElement.lang || ""
-      )
-      .toLowerCase()
-      .split("-")[0]
-      .split("_")[0];
-
-    if (catalogues[lang]) {
-      return lang;
-    }
-
-    return "fr";
-  }
-
-  function setActiveLanguage(lang) {
-
-    buttons.forEach(function (button) {
-
-      button.classList.toggle(
-        "active",
-        button.dataset.lang === lang
-      );
-
-    });
 
   }
+
 
   function showStatus(message) {
 
@@ -478,11 +501,27 @@
 
   }
 
+
   function hideStatus() {
 
     status.style.display = "none";
 
   }
+
+
+  function setActiveLanguage(language) {
+
+    buttons.forEach(function (button) {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.lang === language
+      );
+
+    });
+
+  }
+
 
   function clearCanvas(canvas) {
 
@@ -498,12 +537,125 @@
 
   }
 
+
+  /*
+    Détecte la langue du site parent autant que possible :
+
+    1. ?lang=fr
+    2. URL du site parent contenant /fr/, /en/, /it/, /es/
+    3. document.referrer
+    4. <html lang="...">
+    5. navigateur
+    6. français par défaut
+  */
+
+  function detectLanguage() {
+
+    try {
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const queryLanguage =
+        (
+          params.get("lang") ||
+          ""
+        )
+        .toLowerCase()
+        .split("-")[0];
+
+
+      if (catalogues[queryLanguage]) {
+
+        return queryLanguage;
+
+      }
+
+    } catch (error) {}
+
+
+    try {
+
+      const ref =
+        document.referrer || "";
+
+      const lowerRef =
+        ref.toLowerCase();
+
+      const refMatch =
+        lowerRef.match(
+          /(?:^|[\/?&_=.-])(fr|en|it|es)(?:[\/?&_=.-]|$)/
+        );
+
+      if (
+        refMatch &&
+        catalogues[refMatch[1]]
+      ) {
+
+        return refMatch[1];
+
+      }
+
+    } catch (error) {}
+
+
+    const htmlLanguage =
+      (
+        document.documentElement.lang ||
+        ""
+      )
+      .toLowerCase()
+      .split("-")[0];
+
+
+    if (
+      catalogues[htmlLanguage]
+    ) {
+
+      return htmlLanguage;
+
+    }
+
+
+    try {
+
+      const browserLanguage =
+        (
+          navigator.language ||
+          ""
+        )
+        .toLowerCase()
+        .split("-")[0];
+
+      if (
+        catalogues[browserLanguage]
+      ) {
+
+        return browserLanguage;
+
+      }
+
+    } catch (error) {}
+
+
+    return "fr";
+
+  }
+
+
+  /* ========================================================
+     RENDU PDF
+     ======================================================== */
+
   async function renderPage(
     pageIndex,
     canvas
   ) {
 
     if (
+      !pdf ||
       !pageIndex ||
       pageIndex < 1 ||
       pageIndex > pdf.numPages
@@ -514,22 +666,36 @@
 
     }
 
+
     const page =
-      await pdf.getPage(pageIndex);
+      await pdf.getPage(
+        pageIndex
+      );
+
 
     const baseViewport =
       page.getViewport({
         scale: 1
       });
 
+
     const container =
       canvas.parentElement;
 
+
     const width =
-      container.clientWidth;
+      Math.max(
+        1,
+        container.clientWidth
+      );
+
 
     const height =
-      container.clientHeight;
+      Math.max(
+        1,
+        container.clientHeight
+      );
+
 
     const fitScale =
       Math.min(
@@ -537,39 +703,52 @@
         height / baseViewport.height
       );
 
-    const deviceRatio =
+
+    const pixelRatio =
       Math.min(
         window.devicePixelRatio || 1,
         2
       );
 
-    const scale =
+
+    const renderScale =
       Math.max(
-        .1,
-        fitScale * zoom * deviceRatio
+        0.1,
+        fitScale * zoom * pixelRatio
       );
+
 
     const viewport =
       page.getViewport({
-        scale
+        scale: renderScale
       });
 
+
     canvas.width =
-      Math.floor(viewport.width);
+      Math.ceil(viewport.width);
 
     canvas.height =
-      Math.floor(viewport.height);
+      Math.ceil(viewport.height);
 
-    canvas.style.width = "100%";
-    canvas.style.height = "100%";
+
+    canvas.style.width =
+      "100%";
+
+    canvas.style.height =
+      "100%";
+
 
     const ctx =
       canvas.getContext(
         "2d",
-        { alpha: false }
+        {
+          alpha: false
+        }
       );
 
+
     ctx.fillStyle = "#fff";
+
     ctx.fillRect(
       0,
       0,
@@ -577,114 +756,142 @@
       canvas.height
     );
 
+
     await page.render({
+
       canvasContext: ctx,
       viewport: viewport
+
     }).promise;
 
   }
 
-  function currentSpread() {
 
-    if (isMobile()) {
-      return {
-        left: null,
-        right: currentPage
-      };
-    }
+  /* ========================================================
+     AFFICHAGE DU LIVRE
+     ======================================================== */
 
-    if (currentPage === 1) {
+  function desktopSpread() {
+
+    if (current === 1) {
+
       return {
         left: null,
         right: 1
       };
+
     }
 
+
     const left =
-      currentPage % 2 === 0
-        ? currentPage
-        : currentPage - 1;
+      current % 2 === 0
+        ? current
+        : current - 1;
+
 
     return {
+
       left: left,
+
       right:
         left + 1 <= pdf.numPages
           ? left + 1
           : null
+
     };
 
   }
+
 
   async function renderBook() {
 
     if (!pdf) return;
 
+
     if (isMobile()) {
 
-      leftPage.style.display = "none";
-      rightPage.style.display = "block";
+      leftPage.style.display =
+        "none";
+
+      rightPage.style.display =
+        "block";
+
 
       await renderPage(
-        currentPage,
+        current,
         rightCanvas
       );
 
+
     } else {
 
-      leftPage.style.display = "block";
-      rightPage.style.display = "block";
+      leftPage.style.display =
+        "block";
+
+      rightPage.style.display =
+        "block";
+
 
       const spread =
-        currentSpread();
+        desktopSpread();
+
 
       if (spread.left) {
+
         await renderPage(
           spread.left,
           leftCanvas
         );
+
       } else {
+
         clearCanvas(leftCanvas);
+
       }
 
+
       if (spread.right) {
+
         await renderPage(
           spread.right,
           rightCanvas
         );
+
       } else {
+
         clearCanvas(rightCanvas);
+
       }
 
-      currentPage =
+
+      current =
         spread.left || 1;
 
     }
+
 
     updateControls();
 
   }
 
+
   function updateControls() {
 
     if (!pdf) return;
 
+
     if (isMobile()) {
 
       pageNumber.textContent =
-        currentPage +
+        current +
         " / " +
         pdf.numPages;
-
-      prevButton.disabled =
-        currentPage <= 1;
-
-      nextButton.disabled =
-        currentPage >= pdf.numPages;
 
     } else {
 
       const spread =
-        currentSpread();
+        desktopSpread();
+
 
       if (!spread.left) {
 
@@ -697,116 +904,148 @@
         pageNumber.textContent =
           spread.left +
           "–" +
-          (spread.right || spread.left) +
+          (
+            spread.right ||
+            spread.left
+          ) +
           " / " +
           pdf.numPages;
 
       }
 
-      prevButton.disabled =
-        currentPage <= 1;
-
-      nextButton.disabled =
-        currentPage >= pdf.numPages;
-
     }
 
+
+    prevButton.disabled =
+      current <= 1;
+
+
+    nextButton.disabled =
+      current >= pdf.numPages;
+
   }
+
+
+  /* ========================================================
+     ANIMATION PAGE SUIVANTE
+     ======================================================== */
 
   async function nextPage() {
 
-    if (!pdf || busy) return;
-
-    if (isMobile()) {
-
-      if (
-        currentPage >= pdf.numPages
-      ) return;
-
-      busy = true;
-
-      currentPage += 1;
-
-      try {
-        await renderBook();
-      } finally {
-        busy = false;
-      }
+    if (
+      !pdf ||
+      busy ||
+      current >= pdf.numPages
+    ) {
 
       return;
+
     }
 
-    const spread =
-      currentSpread();
-
-    const nextLeft =
-      spread.right
-        ? spread.right + 1
-        : currentPage + 2;
-
-    if (
-      nextLeft > pdf.numPages
-    ) return;
 
     busy = true;
 
+
     try {
 
-      const rightPage =
-        spread.right || currentPage;
+      if (isMobile()) {
+
+        current += 1;
+
+        await renderBook();
+
+        return;
+
+      }
+
+
+      const spread =
+        desktopSpread();
+
+
+      const oldRight =
+        spread.right || current;
+
+
+      const newLeft =
+        oldRight + 1;
+
+
+      if (
+        newLeft > pdf.numPages
+      ) {
+
+        return;
+
+      }
+
 
       await renderPage(
-        rightPage,
-        document.getElementById(
-          "turn-right-front"
-        )
+        oldRight,
+        flipFrontCanvas
       );
+
 
       await renderPage(
-        nextLeft,
-        document.getElementById(
-          "turn-right-back"
-        )
+        newLeft,
+        flipBackCanvas
       );
 
-      turnRight.style.display =
+
+      flipPage.style.display =
         "block";
 
-      turnRight.style.transition =
+      flipPage.style.transition =
         "none";
 
-      turnRight.style.transform =
+      flipPage.style.transform =
         "rotateY(0deg)";
 
-      requestAnimationFrame(function () {
 
-        requestAnimationFrame(function () {
+      requestAnimationFrame(
+        function () {
 
-          turnRight.style.transition =
-            "transform .55s cubic-bezier(.22,.61,.36,1)";
+          requestAnimationFrame(
+            function () {
 
-          turnRight.style.transform =
-            "rotateY(-180deg)";
+              flipPage.style.transition =
+                "transform .58s cubic-bezier(.22,.61,.36,1)";
 
-        });
+              flipPage.style.transform =
+                "rotateY(-180deg)";
 
-      });
+            }
+          );
 
-      await new Promise(function (resolve) {
-        setTimeout(resolve, 570);
-      });
+        }
+      );
 
-      turnRight.style.display =
+
+      await new Promise(
+        function (resolve) {
+
+          setTimeout(
+            resolve,
+            600
+          );
+
+        }
+      );
+
+
+      flipPage.style.display =
         "none";
 
-      turnRight.style.transition =
+      flipPage.style.transition =
         "";
 
-      turnRight.style.transform =
+      flipPage.style.transform =
         "rotateY(0deg)";
 
-      currentPage =
-        nextLeft;
+
+      current =
+        newLeft;
+
 
       await renderBook();
 
@@ -817,99 +1056,158 @@
     }
 
   }
+
+
+  /* ========================================================
+     ANIMATION PAGE PRÉCÉDENTE
+     ======================================================== */
 
   async function previousPage() {
 
-    if (!pdf || busy) return;
-
-    if (isMobile()) {
-
-      if (currentPage <= 1) return;
-
-      busy = true;
-
-      currentPage -= 1;
-
-      try {
-        await renderBook();
-      } finally {
-        busy = false;
-      }
+    if (
+      !pdf ||
+      busy ||
+      current <= 1
+    ) {
 
       return;
 
     }
 
-    if (currentPage <= 1) return;
-
-    const spread =
-      currentSpread();
-
-    const previousRight =
-      spread.left - 1;
-
-    const previousLeft =
-      Math.max(
-        1,
-        previousRight - 1
-      );
 
     busy = true;
 
+
     try {
 
+      if (isMobile()) {
+
+        current -= 1;
+
+        await renderBook();
+
+        return;
+
+      }
+
+
+      const spread =
+        desktopSpread();
+
+
+      if (!spread.left) {
+
+        return;
+
+      }
+
+
+      const oldLeft =
+        spread.left;
+
+
+      const previousRight =
+        oldLeft - 1;
+
+
+      const previousLeft =
+        previousRight - 1 >= 1
+          ? previousRight - 1
+          : null;
+
+
       await renderPage(
-        spread.left,
-        document.getElementById(
-          "turn-left-front"
-        )
+        oldLeft,
+        flipFrontCanvas
       );
+
 
       await renderPage(
         previousRight,
-        document.getElementById(
-          "turn-left-back"
-        )
+        flipBackCanvas
       );
 
-      turnLeft.style.display =
+
+      /*
+        Pour le retour, le flip doit partir
+        de la page gauche et tourner dans
+        l'autre sens.
+      */
+
+      flipPage.style.display =
         "block";
 
-      turnLeft.style.transition =
+      flipPage.style.right =
+        "auto";
+
+      flipPage.style.left =
+        "0";
+
+      flipPage.style.transformOrigin =
+        "right center";
+
+      flipPage.style.transition =
         "none";
 
-      turnLeft.style.transform =
+      flipPage.style.transform =
         "rotateY(0deg)";
 
-      requestAnimationFrame(function () {
 
-        requestAnimationFrame(function () {
+      requestAnimationFrame(
+        function () {
 
-          turnLeft.style.transition =
-            "transform .55s cubic-bezier(.22,.61,.36,1)";
+          requestAnimationFrame(
+            function () {
 
-          turnLeft.style.transform =
-            "rotateY(180deg)";
+              flipPage.style.transition =
+                "transform .58s cubic-bezier(.22,.61,.36,1)";
 
-        });
+              flipPage.style.transform =
+                "rotateY(180deg)";
 
-      });
+            }
 
-      await new Promise(function (resolve) {
-        setTimeout(resolve, 570);
-      });
+          );
 
-      turnLeft.style.display =
+        }
+
+      );
+
+
+      await new Promise(
+        function (resolve) {
+
+          setTimeout(
+            resolve,
+            600
+          );
+
+        }
+      );
+
+
+      flipPage.style.display =
         "none";
 
-      turnLeft.style.transition =
+      flipPage.style.transition =
         "";
 
-      turnLeft.style.transform =
+      flipPage.style.transform =
         "rotateY(0deg)";
 
-      currentPage =
-        previousLeft;
+      flipPage.style.right =
+        "0";
+
+      flipPage.style.left =
+        "auto";
+
+      flipPage.style.transformOrigin =
+        "left center";
+
+
+      current =
+        previousLeft || 1;
+
 
       await renderBook();
 
@@ -921,202 +1219,317 @@
 
   }
 
-  async function loadCatalogue(lang) {
 
-    if (!catalogues[lang]) {
-      lang = "fr";
+  /* ========================================================
+     CHARGEMENT D'UN CATALOGUE
+     ======================================================== */
+
+  async function loadCatalogue(
+    language
+  ) {
+
+    if (!catalogues[language]) {
+
+      language = "fr";
+
     }
 
-    activeLanguage =
-      lang;
 
-    setActiveLanguage(lang);
+    activeLanguage =
+      language;
+
+
+    setActiveLanguage(
+      language
+    );
+
 
     hideStatus();
+
 
     try {
 
       /*
-        On charge d'abord le PDF avec fetch() depuis GitHub Pages,
-        puis on donne directement les octets à PDF.js.
-        Cela évite les problèmes de requêtes Range/stream éventuels.
+        URL ABSOLUE DE GITHUB PAGES
       */
-      const response = await fetch(
-        catalogues[lang],
-        {
-          cache: "no-store"
-        }
-      );
+
+      const response =
+        await fetch(
+          catalogues[language],
+          {
+            cache: "no-store"
+          }
+        );
+
 
       if (!response.ok) {
+
         throw new Error(
           "HTTP " +
           response.status +
-          " pour " +
-          catalogues[lang]
+          " — " +
+          catalogues[language]
         );
+
       }
 
-      const pdfData =
+
+      const data =
         await response.arrayBuffer();
 
-      pdf = await pdfjsLib.getDocument({
-        data: pdfData
-      }).promise;
 
-      currentPage = 1;
+      pdf =
+        await pdfjsLib.getDocument({
+          data: data
+        }).promise;
+
+
+      current = 1;
       zoom = 1;
 
+
       await renderBook();
+
 
     } catch (error) {
 
       console.error(
-        "Erreur chargement PDF :",
+        "Erreur catalogue :",
         error
       );
 
+
       showStatus(
-        "Impossible de charger le catalogue : " +
-        (error && error.message
-          ? error.message
-          : "erreur inconnue")
+        "Impossible de charger le catalogue. " +
+        "Erreur : " +
+        (
+          error &&
+          error.message
+            ? error.message
+            : "erreur inconnue"
+        )
       );
 
     }
 
   }
 
-  buttons.forEach(function (button) {
 
-    button.addEventListener(
-      "click",
-      function () {
+  /* ========================================================
+     CLIC DRAPEAUX
+     ======================================================== */
 
-        loadCatalogue(
-          button.dataset.lang
-        );
+  buttons.forEach(
+    function (button) {
 
-      }
-    );
+      button.addEventListener(
+        "click",
+        function () {
 
-  });
+          loadCatalogue(
+            button.dataset.lang
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ========================================================
+     BOUTONS
+     ======================================================== */
 
   prevButton.addEventListener(
     "click",
     previousPage
   );
 
+
   nextButton.addEventListener(
     "click",
     nextPage
   );
 
+
   document
     .getElementById("zoom-in")
-    .addEventListener("click", async function () {
+    .addEventListener(
+      "click",
+      async function () {
 
-      zoom =
-        Math.min(
-          2.5,
-          zoom + .15
-        );
+        zoom =
+          Math.min(
+            2.5,
+            zoom + .15
+          );
 
-      await renderBook();
+        await renderBook();
 
-    });
+      }
+    );
+
 
   document
     .getElementById("zoom-out")
-    .addEventListener("click", async function () {
+    .addEventListener(
+      "click",
+      async function () {
 
-      zoom =
-        Math.max(
-          .75,
-          zoom - .15
-        );
+        zoom =
+          Math.max(
+            .75,
+            zoom - .15
+          );
 
-      await renderBook();
+        await renderBook();
 
-    });
+      }
+    );
+
 
   document
     .getElementById("fullscreen")
-    .addEventListener("click", async function () {
+    .addEventListener(
+      "click",
+      async function () {
 
-      if (!document.fullscreenElement) {
+        try {
 
-        await document
-          .getElementById(
-            "catalogue-reader"
-          )
-          .requestFullscreen();
+          if (
+            !document.fullscreenElement
+          ) {
 
-      } else {
+            await reader.requestFullscreen();
 
-        await document.exitFullscreen();
+          } else {
+
+            await document.exitFullscreen();
+
+          }
+
+        } catch (error) {
+
+          console.error(
+            "Fullscreen error:",
+            error
+          );
+
+        }
 
       }
+    );
 
-    });
 
-  let touchStart = 0;
+  /* ========================================================
+     SWIPE MOBILE
+     ======================================================== */
 
-  book.addEventListener(
-    "touchstart",
-    function (event) {
+  let touchStartX = 0;
 
-      touchStart =
-        event.changedTouches[0].screenX;
+  let touchStartY = 0;
 
-    },
-    { passive: true }
-  );
 
-  book.addEventListener(
-    "touchend",
-    function (event) {
+  document
+    .getElementById("book")
+    .addEventListener(
+      "touchstart",
+      function (event) {
 
-      const touchEnd =
-        event.changedTouches[0].screenX;
+        const touch =
+          event.changedTouches[0];
 
-      const distance =
-        touchStart - touchEnd;
+        touchStartX =
+          touch.screenX;
 
-      if (
-        Math.abs(distance) < 45
-      ) return;
+        touchStartY =
+          touch.screenY;
 
-      if (distance > 0) {
-        nextPage();
-      } else {
-        previousPage();
+      },
+      {
+        passive: true
       }
+    );
 
-    },
-    { passive: true }
-  );
+
+  document
+    .getElementById("book")
+    .addEventListener(
+      "touchend",
+      function (event) {
+
+        const touch =
+          event.changedTouches[0];
+
+        const dx =
+          touchStartX -
+          touch.screenX;
+
+        const dy =
+          touchStartY -
+          touch.screenY;
+
+
+        if (
+          Math.abs(dx) < 45 ||
+          Math.abs(dx) < Math.abs(dy)
+        ) {
+
+          return;
+
+        }
+
+
+        if (dx > 0) {
+
+          nextPage();
+
+        } else {
+
+          previousPage();
+
+        }
+
+      },
+      {
+        passive: true
+      }
+    );
+
+
+  /* ========================================================
+     REDIMENSIONNEMENT
+     ======================================================== */
 
   window.addEventListener(
     "resize",
     function () {
 
       clearTimeout(
-        window.__readerResizeTimer
+        window.__catalogueResize
       );
 
-      window.__readerResizeTimer =
+
+      window.__catalogueResize =
         setTimeout(
           function () {
+
             if (pdf) {
               renderBook();
             }
+
           },
-          150
+          160
         );
 
     }
   );
+
+
+  /* ========================================================
+     DÉMARRAGE
+     ======================================================== */
 
   loadCatalogue(
     detectLanguage()
