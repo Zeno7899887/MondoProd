@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V36</title>
+<title>Mondo Prod — Catalogue V37</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -255,41 +255,6 @@
   }
 
   @media (max-width: 700px) {
-    #book {
-      width: min(100%, 760px);
-      max-width: 760px;
-      height: auto;
-      aspect-ratio: auto;
-      margin: 0 auto !important;
-      transform: none !important;
-    }
-    #book.mobile-reader {
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      width:100%;
-      height:auto;
-      overflow:visible;
-    }
-    #book.mobile-reader .pdf-page {
-      position:relative;
-      width:100%;
-      height:auto;
-      aspect-ratio: 1 / 1.41421356;
-      flex:0 0 auto;
-      box-shadow:0 1px 8px rgba(0,0,0,.10);
-    }
-    #book.mobile-reader .pdf-page img {
-      width:100%;
-      height:100%;
-      object-fit:fill;
-    }
-    #book.mobile-reader .pdf-page[data-density="hard"] {
-      box-shadow:0 1px 8px rgba(0,0,0,.10);
-    }
-    #corner-layer { display:none !important; }
-    #book-area { padding:0 8px; align-items:flex-start; }
-
     #catalogue-languages { gap:6px; margin-bottom:10px; }
     .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
     .lang-btn::after { font-size:10px; }
@@ -1012,19 +977,6 @@
 
     }
 
-    if (isMobileView()) {
-      pageFlip = null;
-      bookElement.classList.add('mobile-reader');
-      mobileCurrentPage = 0;
-      setupMobileReader(pageElements);
-      requestAnimationFrame(function () {
-        updateMobileCounter();
-      });
-      return;
-    }
-
-    bookElement.classList.remove('mobile-reader');
-
     pageFlip =
       new St.PageFlip(
         bookElement,
@@ -1046,7 +998,7 @@
           clickEventForward: true,
           disableFlipByClick: true,
           mobileScrollSupport: true,
-          usePortrait: false,
+          usePortrait: isMobileView(),
           startPage: 0,
           startZIndex: 20,
           autoSize: false
@@ -1061,52 +1013,6 @@
       updateCounter();
     });
 
-  }
-
-  let mobileCurrentPage = 0;
-  let mobileObserver = null;
-
-  function updateMobileCounter() {
-    if (!pdf) return;
-    const total = pdf.numPages;
-    const index = Math.max(0, Math.min(total - 1, mobileCurrentPage));
-    pageNumber.textContent = (index + 1) + " / " + total;
-    firstButton.disabled = index <= 0;
-    prevButton.disabled = index <= 0;
-    nextButton.disabled = index >= total - 1;
-    lastButton.disabled = index >= total - 1;
-  }
-
-  function goToMobilePage(index) {
-    if (!pdf) return;
-    const target = Math.max(0, Math.min(pdf.numPages - 1, index));
-    const page = document.querySelector('#book .pdf-page[data-page-index="' + target + '"]');
-    if (!page) return;
-    mobileCurrentPage = target;
-    ensurePagesReady([target - 1, target, target + 1]).then(function() {
-      page.scrollIntoView({ behavior: 'auto', block: 'start' });
-      updateMobileCounter();
-    });
-  }
-
-  function setupMobileReader(pageElements) {
-    if (mobileObserver) {
-      try { mobileObserver.disconnect(); } catch (error) {}
-    }
-    if ('IntersectionObserver' in window) {
-      mobileObserver = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting) {
-            const index = Number(entry.target.dataset.pageIndex);
-            mobileCurrentPage = index;
-            renderPages([index - 1, index, index + 1], renderGeneration);
-            updateMobileCounter();
-          }
-        });
-      }, { root:null, rootMargin:'500px 0px', threshold:0.15 });
-      pageElements.forEach(function(page) { mobileObserver.observe(page); });
-    }
-    renderPages([0,1,2,3], renderGeneration);
   }
 
   /* ========================================================
@@ -1325,9 +1231,19 @@
   }
 
   /* ========================================================
-     CHARGER UN CATALOGUE
+     CHARGER UN CATALOGUE — LOGIQUE DES LANGUES
      ======================================================== */
 
+  /*
+     Un seul principe : le clic sur un bouton crée une nouvelle requête.
+     La requête précédente peut continuer son téléchargement en arrière-plan,
+     mais elle n'a plus le droit de modifier l'interface lorsqu'une nouvelle
+     langue a été demandée.
+
+     On ne met PAS les PDFDocumentProxy PDF.js en cache. Seuls les buffers
+     binaires sont conservés. Cela évite les états internes périmés de PDF.js
+     après destruction/recréation de PageFlip.
+  */
   function getCatalogueBuffer(language) {
 
     const url = catalogues[language];
@@ -1358,84 +1274,86 @@
     return catalogueBufferPromises.get(language);
   }
 
-  function prefetchOtherCatalogues(currentLanguage) {
-    /*
-       IMPORTANT : le préchargement ne doit jamais concurrencer le chargement
-       d'un changement de langue. On prépare uniquement les langues qui ne
-       sont pas encore en cache, une par une, et surtout jamais le Français
-       après qu'une autre langue vient d'être ouverte.
+  function createFreshCatalogueDocument(language) {
 
-       Le catalogue FR est le catalogue de référence et doit rester totalement
-       indépendant des téléchargements en arrière-plan.
-    */
+    return getCatalogueBuffer(language).then(function(buffer) {
+
+      /*
+         slice() est volontaire : PDF.js reçoit son propre ArrayBuffer et ne
+         peut donc pas modifier/réutiliser celui conservé dans le cache.
+      */
+      const data = buffer.slice(0);
+
+      return pdfjsLib.getDocument({
+        data: data,
+        disableAutoFetch: false,
+        disableStream: false,
+        disableRange: false,
+        cMapPacked: true
+      }).promise;
+
+    });
+  }
+
+  /*
+     Le préchargement ne fait qu'amener les fichiers binaires en cache.
+     Il ne crée aucun PDF.js et ne touche jamais à `pdf`, `pageFlip` ou
+     `activeLanguage`. Il ne peut donc pas casser un changement de langue.
+  */
+  let prefetchToken = 0;
+
+  function prefetchOtherCatalogues(currentLanguage) {
+
+    const token = ++prefetchToken;
+
     const languages = Object.keys(catalogues).filter(function(language) {
-      return language !== currentLanguage && language !== 'fr' &&
-             !catalogueBufferPromises.has(language);
+      return language !== currentLanguage;
     });
 
+    /* Un seul téléchargement à la fois pour éviter de concurrencer un clic. */
     let chain = Promise.resolve();
 
     languages.forEach(function(language) {
       chain = chain.then(function() {
+        if (token !== prefetchToken) return;
         return getCatalogueBuffer(language).catch(function() {});
       });
     });
-  }
-
-  function getCatalogueDocument(language) {
-
-    if (!catalogues[language]) {
-      return Promise.reject(new Error('Langue de catalogue inconnue.'));
-    }
-
-    /*
-       IMPORTANT :
-       Le buffer du PDF est mis en cache, mais PAS le PDFDocumentProxy PDF.js.
-       À chaque changement de langue, on crée donc un nouveau document PDF.js.
-       Ainsi FR → EN → FR fonctionne toujours, même après destruction du
-       PageFlip précédent.
-    */
-    return getCatalogueBuffer(language)
-      .then(function(buffer) {
-        const data = buffer.slice(0);
-
-        return pdfjsLib.getDocument({
-          data: data,
-          disableAutoFetch: false,
-          disableStream: false,
-          disableRange: false,
-          cMapPacked: true
-        }).promise;
-      });
   }
 
   async function loadCatalogue(language) {
 
     if (!catalogues[language]) language = 'fr';
 
+    /*
+       Chaque clic reçoit un identifiant unique. Dès qu'un nouveau clic arrive,
+       toutes les anciennes requêtes deviennent obsolètes et ne peuvent plus
+       remplacer le catalogue affiché.
+    */
     const requestId = ++loadRequestId;
     activeLoadRequestId = requestId;
     requestedLanguage = language;
     loadingCatalogue = true;
     pendingNavigation = null;
 
+    /*
+       Le bouton demandé devient actif immédiatement. Si son chargement échoue,
+       on reviendra automatiquement à la langue réellement affichée.
+    */
     setActiveLanguage(language);
     hideError();
     showLoading('Chargement du catalogue ' + language.toUpperCase() + '…');
 
     try {
 
-      /*
-        IMPORTANT : on ne détruit PAS le catalogue actuellement visible
-        tant que le nouveau PDF n'est pas téléchargé et que ses premières
-        pages ne sont pas prêtes. Le bouton de langue reste donc fiable,
-        même si l'utilisateur clique plusieurs fois.
-      */
-      const loadedPdf = await getCatalogueDocument(language);
+      const loadedPdf = await createFreshCatalogueDocument(language);
 
-      if (!loadedPdf || requestId !== activeLoadRequestId) return;
+      /* Cette réponse n'est plus la dernière demande : on l'abandonne. */
+      if (!loadedPdf || requestId !== activeLoadRequestId) {
+        try { if (loadedPdf) loadedPdf.destroy(); } catch (error) {}
+        return;
+      }
 
-      /* Créer le nouveau livre uniquement après le chargement du PDF. */
       const previousPageFlip = pageFlip;
       const previousPdf = pdf;
 
@@ -1451,25 +1369,28 @@
       pageFlip.update();
       pageFlip.turnToPage(0);
 
-      /*
-        Deux frames permettent à PageFlip de construire sa géométrie avant
-        que PDF.js ne fixe la taille exacte des canvas.
-      */
       await sleepFrame();
 
-      /*
-        Préchargement silencieux : on prépare les 4 premières pages avant
-        d'autoriser la navigation. Aucun message de préparation ne reste donc
-        affiché au milieu du lecteur.
-      */
       await ensurePagesReady([0, 1, 2, 3]);
 
+      /* Une autre langue a été demandée pendant la préparation. */
       if (requestId !== activeLoadRequestId || generation !== renderGeneration) {
+        try { loadedPdf.destroy(); } catch (error) {}
         return;
       }
 
+      /*
+         C'est seulement ici que la langue devient officiellement active.
+         Ainsi `activeLanguage` représente toujours le catalogue réellement
+         affiché et non simplement le dernier bouton cliqué.
+      */
       activeLanguage = language;
-      try { localStorage.setItem('mondoprod-catalogue-lang', language); } catch (error) {}
+      setActiveLanguage(activeLanguage);
+
+      try {
+        localStorage.setItem('mondoprod-catalogue-lang', activeLanguage);
+      } catch (error) {}
+
       document.documentElement.dataset.catalogueReady = 'true';
       document.documentElement.dataset.catalogueLanguage = activeLanguage;
 
@@ -1477,26 +1398,30 @@
       applyReaderScale();
       updateCounter();
       preloadAround(0);
-
-      /* Prépare silencieusement les 3 autres catalogues pendant que
-         l'utilisateur consulte celui qui vient d'être ouvert. */
-      prefetchOtherCatalogues(language);
       positionCornerLayer();
 
-      /* L'ancien livre est détruit seulement maintenant que le nouveau est prêt. */
       if (previousPageFlip && previousPageFlip !== pageFlip) {
         try { previousPageFlip.destroy(); } catch (error) {}
       }
-      /* Les données binaires des catalogues restent en cache.
-         Le document PDF.js affiché est recréé à chaque changement de langue,
-         ce qui garantit que l'on peut toujours revenir au Français ou à toute
-         autre langue après un changement. */
+
+      /*
+         L'ancien PDF.js n'est plus nécessaire. Le buffer correspondant reste
+         dans catalogueBufferPromises pour que le prochain retour soit rapide.
+      */
+      if (previousPdf && previousPdf !== pdf) {
+        try { previousPdf.destroy(); } catch (error) {}
+      }
+
+      /* Le préchargement est lancé seulement après que le changement est fini. */
+      prefetchOtherCatalogues(activeLanguage);
 
     } catch (error) {
 
       if (requestId !== activeLoadRequestId) return;
 
       console.error('Erreur catalogue ' + language + ' :', error);
+
+      /* En cas d'échec, le bouton revient à la langue réellement affichée. */
       setActiveLanguage(activeLanguage);
       showError(
         'Impossible de charger le catalogue : ' +
@@ -1513,36 +1438,34 @@
   }
 
   /* ========================================================
-     DRAPEAUX
+     DRAPEAUX — RECONSTRUITS DE ZÉRO
      ======================================================== */
 
-  languageButtons.forEach(
-    function (button) {
+  languageButtons.forEach(function(button) {
 
-      button.addEventListener(
-        "click",
-        function (event) {
+    button.addEventListener('click', function(event) {
 
-          event.preventDefault();
-          event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
-          const requestedLanguage = button.dataset.lang;
+      const language = String(button.dataset.lang || '').toLowerCase();
 
-          if (!catalogues[requestedLanguage]) {
-            return;
-          }
+      if (!catalogues[language]) return;
 
-          if (requestedLanguage === activeLanguage && pdf && !loadingCatalogue) {
-            return;
-          }
+      /*
+         Ne jamais bloquer un bouton parce qu'un autre catalogue est en cours
+         de chargement. Un nouveau clic doit toujours pouvoir prendre la main.
+      */
+      if (language === activeLanguage && !loadingCatalogue) return;
 
-          loadCatalogue(requestedLanguage);
+      /* Annule logiquement le préchargement en arrière-plan. */
+      prefetchToken++;
 
-        }
-      );
+      loadCatalogue(language);
 
-    }
-  );
+    }, { passive: false });
+
+  });
 
 
   /* ========================================================
@@ -1705,7 +1628,7 @@
      ZOOM
      ======================================================== */
 
-  let readerScale = 1.02;
+  let readerScale = 1.14;
 
   function applyReaderScale() {
     bookElement.style.transform =
@@ -1861,9 +1784,6 @@
   setActiveLanguage(initialLanguage);
   loadCatalogue(initialLanguage);
 
-  /* Le préchargement des autres langues démarre sans bloquer l'ouverture
-     du catalogue courant. */
-  prefetchOtherCatalogues(initialLanguage);
 
 })();
 
