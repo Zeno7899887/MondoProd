@@ -936,10 +936,32 @@
 
     try {
 
+      /*
+        On charge d'abord le PDF avec fetch() depuis GitHub Pages,
+        puis on donne directement les octets à PDF.js.
+        Cela évite les problèmes de requêtes Range/stream éventuels.
+      */
+      const response = await fetch(
+        catalogues[lang],
+        {
+          cache: "no-store"
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " +
+          response.status +
+          " pour " +
+          catalogues[lang]
+        );
+      }
+
+      const pdfData =
+        await response.arrayBuffer();
+
       pdf = await pdfjsLib.getDocument({
-        url: catalogues[lang],
-        disableAutoFetch: false,
-        disableStream: false
+        data: pdfData
       }).promise;
 
       currentPage = 1;
@@ -955,10 +977,10 @@
       );
 
       showStatus(
-        "Impossible de charger le catalogue. " +
-        "Vérifie que " +
-        catalogues[lang] +
-        " est accessible publiquement."
+        "Impossible de charger le catalogue : " +
+        (error && error.message
+          ? error.message
+          : "erreur inconnue")
       );
 
     }
