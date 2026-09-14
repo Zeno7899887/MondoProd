@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V18</title>
+<title>Mondo Prod — Catalogue V20</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -656,6 +656,7 @@
   let renderGeneration = 0;
 
   const renderedPages = new Map();
+  const inFlightRenders = new Map();
 
 
   function isMobileView() {
@@ -691,70 +692,134 @@
       return false;
     }
 
-    const pageElement =
-      document.querySelector(
-        '#book .pdf-page[data-page-index="' + index + '"]'
-      );
-
-    if (!pageElement) {
-      return false;
-    }
-
-    const canvas =
-      pageElement.querySelector('canvas');
-
-    if (!canvas) {
-      return false;
-    }
-
     if (renderedPages.get(index) === generation) {
       return true;
     }
 
-    const page =
-      await pdf.getPage(index + 1);
+    /*
+      Plusieurs fonctions peuvent demander la même page presque au
+      même moment (createBook, preloadAround, resize, changement de
+      langue). PDF.js interdit deux render() simultanés sur le même
+      canvas. On partage donc la même Promise pour chaque couple
+      génération/page au lieu de lancer plusieurs rendus concurrents.
+    */
+    const renderKey = generation + ':' + index;
+    const existingRender = inFlightRenders.get(renderKey);
 
-    if (generation !== renderGeneration) {
-      return false;
+    if (existingRender) {
+      return existingRender;
     }
 
-    const baseViewport =
-      page.getViewport({ scale: 1 });
+    const renderPromise = (async function () {
 
-    const targetWidth =
-      getRenderTargetWidth();
+      const pageElement =
+        document.querySelector(
+          '#book .pdf-page[data-page-index="' + index + '"]'
+        );
 
-    const scale =
-      targetWidth / baseViewport.width;
+      if (!pageElement) {
+        return false;
+      }
 
-    const viewport =
-      page.getViewport({ scale: scale });
+      const canvas =
+        pageElement.querySelector('canvas');
 
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
+      if (!canvas) {
+        return false;
+      }
 
-    const context =
-      canvas.getContext('2d', { alpha: false });
+      /* Capture le PDF/canvas réellement utilisés par ce rendu. */
+      const pdfForRender = pdf;
 
-    context.save();
-    context.fillStyle = '#fff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.restore();
+      const page =
+        await pdfForRender.getPage(index + 1);
 
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-      intent: 'display',
-      renderInteractiveForms: true
-    }).promise;
+      if (generation !== renderGeneration || pdf !== pdfForRender) {
+        return false;
+      }
 
-    if (generation !== renderGeneration) {
-      return false;
+      const baseViewport =
+        page.getViewport({ scale: 1 });
+
+      const targetWidth =
+        getRenderTargetWidth();
+
+      const scale =
+        targetWidth / baseViewport.width;
+
+      const viewport =
+        page.getViewport({ scale: scale });
+
+      /*
+        Vérifie encore le canvas juste avant render(). Si une nouvelle
+        liseuse a été créée entre-temps, on abandonne ce rendu ancien.
+      */
+      const currentPageElement =
+        document.querySelector(
+          '#book .pdf-page[data-page-index="' + index + '"]'
+        );
+
+      const currentCanvas =
+        currentPageElement
+          ? currentPageElement.querySelector('canvas')
+          : null;
+
+      if (currentCanvas !== canvas || generation !== renderGeneration || pdf !== pdfForRender) {
+        return false;
+      }
+
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+
+      const context =
+        canvas.getContext('2d', { alpha: false });
+
+      context.save();
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.restore();
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        intent: 'display',
+        renderInteractiveForms: true
+      }).promise;
+
+      if (generation !== renderGeneration || pdf !== pdfForRender) {
+        return false;
+      }
+
+      /* Ne marque la page comme prête que si ce canvas est toujours
+         celui affiché par la liseuse courante. */
+      const finalPageElement =
+        document.querySelector(
+          '#book .pdf-page[data-page-index="' + index + '"]'
+        );
+
+      const finalCanvas =
+        finalPageElement
+          ? finalPageElement.querySelector('canvas')
+          : null;
+
+      if (finalCanvas !== canvas) {
+        return false;
+      }
+
+      renderedPages.set(index, generation);
+      return true;
+
+    })();
+
+    inFlightRenders.set(renderKey, renderPromise);
+
+    try {
+      return await renderPromise;
+    } finally {
+      if (inFlightRenders.get(renderKey) === renderPromise) {
+        inFlightRenders.delete(renderKey);
+      }
     }
-
-    renderedPages.set(index, generation);
-
-    return true;
 
   }
 
@@ -783,6 +848,11 @@
   function clearRenderedPages() {
 
     renderedPages.clear();
+
+    /* Les anciennes Promises restent autorisées à se terminer, mais ne
+       peuvent plus être considérées comme un rendu actif de la nouvelle
+       génération. */
+    inFlightRenders.clear();
 
   }
 
@@ -1215,6 +1285,21 @@
       if (requestId !== activeLoadRequestId) return;
 
       renderGeneration++;
+      pendingNavigation = null;
+
+      if (pageFlip) {
+        try { pageFlip.destroy(); } catch (destroyError) {}
+        pageFlip = null;
+      }
+
+      /* Une erreur de rendu ne doit pas laisser l'ancien PDF en mémoire
+         et empêcher de recliquer sur le même drapeau. */
+      if (pdf) {
+        try { pdf.destroy(); } catch (destroyError) {}
+      }
+      pdf = null;
+      bookElement.innerHTML = "";
+      clearRenderedPages();
 
       console.error("Erreur catalogue :", error);
 
