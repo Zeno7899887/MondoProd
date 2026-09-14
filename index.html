@@ -596,35 +596,7 @@
   function detectLanguage() {
 
     /*
-      1 — Langue indiquée directement dans l'URL du site.
-
-      Mondo Prod utilise des URLs comme :
-        /t-en
-        /t-it
-        /t-es
-
-      On regarde donc d'abord le chemin de la page.
-    */
-
-    try {
-
-      const path =
-        window.location.pathname
-          .toLowerCase()
-          .replace(/\\/+$/, "");
-
-      const pathMatch =
-        path.match(/(?:^|\\/)t-(fr|en|it|es)(?:\\/|$)/);
-
-      if (pathMatch && catalogues[pathMatch[1]]) {
-        return pathMatch[1];
-      }
-
-    } catch (error) {}
-
-
-    /*
-      2 — ?lang=fr
+      1 — ?lang=fr
     */
 
     try {
@@ -655,44 +627,41 @@
 
 
     /*
-      3 — Langue réelle de la page du site.
-         C'est cette langue qui doit piloter automatiquement
-         le catalogue affiché.
-    */
-
-    const documentLang =
-      (
-        document.documentElement.lang ||
-        document.body.lang ||
-        document.documentElement.getAttribute("data-lang") ||
-        ""
-      )
-      .toLowerCase()
-      .split("-")[0];
-
-    if (catalogues[documentLang]) {
-      return documentLang;
-    }
-
-    /*
-      4 — Dernière langue choisie manuellement dans la liseuse.
-         Elle sert uniquement de secours si la page ne fournit
-         aucune langue exploitable.
+      2 — Dernière langue choisie dans la liseuse.
     */
 
     try {
       const savedLang = (localStorage.getItem('mondoprod-catalogue-lang') || '')
         .toLowerCase()
         .split('-')[0];
-
-      if (catalogues[savedLang]) {
-        return savedLang;
-      }
+      if (catalogues[savedLang]) return savedLang;
     } catch (error) {}
 
 
     /*
-      5 — Langue du navigateur.
+      3 — Langue du document.
+    */
+
+    const htmlLang =
+      (
+        document.documentElement.lang ||
+        ""
+      )
+      .toLowerCase()
+      .split("-")[0];
+
+
+    if (
+      catalogues[htmlLang]
+    ) {
+
+      return htmlLang;
+
+    }
+
+
+    /*
+      3 — Langue du navigateur.
     */
 
     try {
@@ -1772,10 +1741,9 @@
      DÉMARRAGE
      ======================================================== */
 
-  /* La langue du site pilote automatiquement le catalogue.
-     Si aucune langue exploitable n'est détectée, detectLanguage()
-     retombe sur le Français. */
-  const initialLanguage = detectLanguage();
+  /* Le catalogue par défaut doit toujours être le Français.
+     Les autres langues restent disponibles via les boutons. */
+  const initialLanguage = "fr";
   setActiveLanguage(initialLanguage);
   loadCatalogue(initialLanguage);
 
