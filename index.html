@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V21</title>
+<title>Mondo Prod — Catalogue V22</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -492,9 +492,14 @@
   let pdf = null;
 
   let activeLanguage = "fr";
+  let requestedLanguage = "fr";
 
   let loadRequestId = 0;
   let activeLoadRequestId = 0;
+
+  /* Documents PDF.js conservés pour des changements de langue fiables. */
+  const pdfCache = new Map();
+  const pdfLoadingPromises = new Map();
 
 
   /* ========================================================
@@ -597,7 +602,19 @@
 
 
     /*
-      2 — Langue du document.
+      2 — Dernière langue choisie dans la liseuse.
+    */
+
+    try {
+      const savedLang = (localStorage.getItem('mondoprod-catalogue-lang') || '')
+        .toLowerCase()
+        .split('-')[0];
+      if (catalogues[savedLang]) return savedLang;
+    } catch (error) {}
+
+
+    /*
+      3 — Langue du document.
     */
 
     const htmlLang =
@@ -657,7 +674,6 @@
 
   const renderedPages = new Map();
   const renderingPages = new Map();
-  let activeLoadingTask = null;
 
 
   function isMobileView() {
@@ -689,61 +705,39 @@
 
   async function renderPage(index, generation) {
 
-    if (!pdf || generation !== renderGeneration) {
-      return false;
-    }
+    if (!pdf || generation !== renderGeneration) return false;
+    if (renderedPages.get(index) === generation) return true;
 
-    if (renderedPages.get(index) === generation) {
-      return true;
-    }
+    const existing = renderingPages.get(index);
+    if (existing && existing.generation === generation) return existing.promise;
 
-    const existingTask = renderingPages.get(index);
-    if (existingTask && existingTask.generation === generation) {
-      return existingTask.promise;
-    }
+    const entry = { generation: generation, promise: null, task: null };
 
     const promise = (async function () {
 
-      const pageElement =
-        document.querySelector(
-          '#book .pdf-page[data-page-index="' + index + '"]'
-        );
+      const pageElement = document.querySelector(
+        '#book .pdf-page[data-page-index="' + index + '"]'
+      );
+      if (!pageElement) return false;
 
-      if (!pageElement) {
-        return false;
-      }
-
-      const canvas =
-        pageElement.querySelector('canvas');
-
-      if (!canvas) {
-        return false;
-      }
+      const canvas = pageElement.querySelector('canvas');
+      if (!canvas) return false;
 
       const pdfAtStart = pdf;
       const page = await pdfAtStart.getPage(index + 1);
 
-      if (generation !== renderGeneration || pdf !== pdfAtStart) {
-        return false;
-      }
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
 
-      const baseViewport =
-        page.getViewport({ scale: 1 });
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetWidth = getRenderTargetWidth();
+      const scale = targetWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale: scale });
 
-      const targetWidth =
-        getRenderTargetWidth();
-
-      const scale =
-        targetWidth / baseViewport.width;
-
-      const viewport =
-        page.getViewport({ scale: scale });
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) return false;
 
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
-
-      const context =
-        canvas.getContext('2d', { alpha: false });
 
       context.save();
       context.fillStyle = '#fff';
@@ -757,42 +751,39 @@
         renderInteractiveForms: true
       });
 
+      entry.task = renderTask;
+
       try {
         await renderTask.promise;
       } catch (error) {
-        // A cancelled/obsolete render is expected when changing language.
-        if (generation !== renderGeneration || pdf !== pdfAtStart) {
-          try { renderTask.cancel(); } catch (cancelError) {}
+        if (
+          generation !== renderGeneration ||
+          pdf !== pdfAtStart ||
+          (error && error.name === 'RenderingCancelledException')
+        ) {
           return false;
         }
         throw error;
       }
 
-      if (generation !== renderGeneration || pdf !== pdfAtStart) {
-        return false;
-      }
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
 
       renderedPages.set(index, generation);
       return true;
 
     })();
 
-    renderingPages.set(index, {
-      generation: generation,
-      promise: promise
-    });
+    entry.promise = promise;
+    renderingPages.set(index, entry);
 
     try {
       return await promise;
     } finally {
       const current = renderingPages.get(index);
-      if (current && current.promise === promise) {
-        renderingPages.delete(index);
-      }
+      if (current && current.promise === promise) renderingPages.delete(index);
     }
 
   }
-
 
   async function renderPages(indices, generation) {
 
@@ -815,10 +806,21 @@
   }
 
 
+  function cancelCurrentRenders() {
+
+    renderingPages.forEach(function (entry) {
+      if (entry && entry.task) {
+        try { entry.task.cancel(); } catch (error) {}
+      }
+    });
+
+  }
+
+
   function clearRenderedPages() {
 
     renderedPages.clear();
-    // Promesses de rendu obsolètes sont invalidées par renderGeneration.
+    cancelCurrentRenders();
     renderingPages.clear();
 
   }
@@ -1158,100 +1160,93 @@
      CHARGER UN CATALOGUE
      ======================================================== */
 
-  async function loadCatalogue(
-    language
-  ) {
+  async function getCatalogueDocument(language) {
 
-    if (!catalogues[language]) {
-      language = "fr";
-    }
+    if (pdfCache.has(language)) return pdfCache.get(language);
+    if (pdfLoadingPromises.has(language)) return pdfLoadingPromises.get(language);
 
-    /*
-      Chaque clic crée une nouvelle requête logique.
-      La précédente peut donc être abandonnée proprement sans
-      empêcher le changement de langue pendant un chargement.
-    */
+    const loadingTask = pdfjsLib.getDocument({
+      url: catalogues[language],
+      disableAutoFetch: false,
+      disableStream: false,
+      disableRange: false,
+      cMapPacked: true
+    });
+
+    const promise = loadingTask.promise.then(function (loadedPdf) {
+      pdfCache.set(language, loadedPdf);
+      pdfLoadingPromises.delete(language);
+      return loadedPdf;
+    }).catch(function (error) {
+      pdfLoadingPromises.delete(language);
+      throw error;
+    });
+
+    pdfLoadingPromises.set(language, promise);
+    return promise;
+  }
+
+
+  async function loadCatalogue(language) {
+
+    if (!catalogues[language]) language = 'fr';
+
     const requestId = ++loadRequestId;
     activeLoadRequestId = requestId;
+    requestedLanguage = language;
     pendingNavigation = null;
 
-    // Invalide immédiatement tous les rendus de l'ancien catalogue.
+    /* Invalide tous les rendus en cours, sans supprimer l'ancien
+       catalogue : celui-ci reste visible jusqu'à ce que le nouveau
+       PDF soit effectivement prêt. */
     renderGeneration++;
-    const thisRenderGeneration = renderGeneration;
+    const generation = renderGeneration;
+    cancelCurrentRenders();
 
-    activeLanguage = language;
-    document.documentElement.dataset.catalogueReady = "false";
     setActiveLanguage(language);
-    try { localStorage.setItem("mondoprod-catalogue-lang", language); } catch (error) {}
     hideError();
-    showLoading("Chargement du catalogue…");
+    showLoading('Chargement du catalogue ' + language.toUpperCase() + '…');
 
     try {
 
-      // Stoppe proprement le chargement PDF précédent s'il existe encore.
-      if (activeLoadingTask) {
-        try { activeLoadingTask.destroy(); } catch (error) {}
-        activeLoadingTask = null;
-      }
+      const loadedPdf = await getCatalogueDocument(language);
 
+      if (requestId !== activeLoadRequestId || language !== requestedLanguage) return;
+
+      /* Le nouveau document est prêt : seulement maintenant on remplace
+         PageFlip. Cela évite de bloquer la liseuse pendant le téléchargement. */
       if (pageFlip) {
         try { pageFlip.destroy(); } catch (error) {}
         pageFlip = null;
       }
 
-      // Vider immédiatement l'ancien livre.
-      bookElement.innerHTML = "";
-      pdf = null;
+      bookElement.innerHTML = '';
       renderedPages.clear();
       renderingPages.clear();
 
-      const pdfUrl = catalogues[language];
-
-      // URL distincte + paramètre de cache unique pour éviter qu'un CDN
-      // conserve l'ancien document après un changement de langue.
-      const cacheBust = "?catalogueLang=" + encodeURIComponent(language) + "&r=" + requestId;
-
-      const loadingTask = pdfjsLib.getDocument({
-        url: pdfUrl + cacheBust,
-        disableAutoFetch: false,
-        disableStream: false,
-        disableRange: false,
-        cMapPacked: true
-      });
-
-      activeLoadingTask = loadingTask;
-
-      const loadedPdf = await loadingTask.promise;
-
-      if (activeLoadingTask === loadingTask) {
-        activeLoadingTask = null;
-      }
-
-      if (requestId !== activeLoadRequestId || renderGeneration !== thisRenderGeneration) {
-        try { await loadedPdf.destroy(); } catch (error) {}
-        return;
-      }
-
       pdf = loadedPdf;
-      clearRenderedPages();
-      const generation = thisRenderGeneration;
+      activeLanguage = language;
+      document.documentElement.dataset.catalogueReady = 'false';
+
+      try { localStorage.setItem('mondoprod-catalogue-lang', language); } catch (error) {}
 
       createBook();
       attachPageFlipEvents();
+
       if (pageFlip) {
         pageFlip.update();
         pageFlip.turnToPage(0);
       }
-      updateCounter();
 
-      showLoading("Rendu haute définition…");
+      updateCounter();
+      showLoading('Rendu haute définition…');
 
       await renderPages([0, 1, 2], generation);
 
-      if (requestId !== activeLoadRequestId) return;
+      if (requestId !== activeLoadRequestId || language !== requestedLanguage) return;
 
       hideLoading();
-      document.documentElement.dataset.catalogueReady = "true";
+      document.documentElement.dataset.catalogueReady = 'true';
       document.documentElement.dataset.catalogueLanguage = activeLanguage;
       updateCounter();
       preloadAround(pageFlip ? pageFlip.getCurrentPageIndex() : 0);
@@ -1260,11 +1255,11 @@
 
       if (requestId !== activeLoadRequestId) return;
 
-      console.error("Erreur catalogue :", error);
-
+      console.error('Erreur catalogue ' + language + ' :', error);
+      setActiveLanguage(activeLanguage);
       showError(
-        "Impossible de charger le catalogue : " +
-        (error && error.message ? error.message : "erreur inconnue")
+        'Impossible de charger le catalogue : ' +
+        (error && error.message ? error.message : 'erreur inconnue')
       );
 
     }
