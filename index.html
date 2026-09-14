@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V24</title>
+<title>Mondo Prod — Catalogue V26</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -156,22 +156,11 @@
   #next-page { right:62px; }
   #last-page { right:10px; }
 
+  /* Le chargement est désormais totalement silencieux : aucune bannière
+     ni aucun texte ne doit rester au milieu de la liseuse. */
   #loading {
-    position:absolute;
-    inset:0;
-    z-index:90;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    pointer-events:none;
-    color:rgba(0,0,0,.60);
-    font-size:13px;
-    font-weight:500;
-    letter-spacing:.01em;
-    opacity:1;
-    transition:opacity .25s ease;
+    display:none !important;
   }
-  #loading.hidden { opacity:0; }
 
   #catalogue-reader:not([data-ready="true"]) #book {
     pointer-events:none;
@@ -355,11 +344,6 @@
       »
     </button>
 
-
-    <div id="loading">
-      Chargement du catalogue…
-    </div>
-
   </div>
 
 
@@ -540,14 +524,11 @@
 
 
   function showLoading(message) {
-    loading.textContent = message || "Chargement du catalogue…";
-    loading.classList.remove("hidden");
     document.getElementById("catalogue-reader").dataset.ready = "false";
   }
 
 
   function hideLoading() {
-    loading.classList.add("hidden");
     document.getElementById("catalogue-reader").dataset.ready = "true";
   }
 
@@ -808,13 +789,14 @@
     if (generation !== renderGeneration) return false;
 
     /*
-       Les pages sont différentes : PDF.js peut donc les rendre en parallèle.
-       Cela réduit fortement le temps avant que la première animation soit
-       autorisée, tout en gardant un canvas différent pour chaque page.
+       Les pages proches de la position courante sont rendues l'une après
+       l'autre. Cela évite qu'une animation démarre alors qu'un canvas voisin
+       est encore en train de recevoir son rendu PDF.
     */
-    await Promise.all(unique.map(function(index) {
-      return renderPage(index, generation);
-    }));
+    for (const index of unique) {
+      if (generation !== renderGeneration) return false;
+      await renderPage(index, generation);
+    }
 
     return generation === renderGeneration;
   }
@@ -824,15 +806,15 @@
     if (!pdf) return;
     const generation = renderGeneration;
     const total = pdf.numPages;
-    const radius = 4;
+    const radius = 6;
     const indices = [];
 
     for (let i = index - radius; i <= index + radius; i++) {
       if (i >= 0 && i < total) indices.push(i);
     }
 
-    if (index <= 2) [0,1,2,3,4,5].forEach(function(i) { if (i < total) indices.push(i); });
-    if (index >= total - 3) [total-6,total-5,total-4,total-3,total-2,total-1].forEach(function(i) { if (i >= 0 && i < total) indices.push(i); });
+    if (index <= 3) [0,1,2,3,4,5,6,7].forEach(function(i) { if (i < total) indices.push(i); });
+    if (index >= total - 4) [total-8,total-7,total-6,total-5,total-4,total-3,total-2,total-1].forEach(function(i) { if (i >= 0 && i < total) indices.push(i); });
 
     readyPromise = readyPromise.then(function() {
       if (generation !== renderGeneration) return;
@@ -914,7 +896,7 @@
           showPageCorners: true,
           useMouseEvents: true,
           swipeDistance: 25,
-          clickEventForward: false,
+          clickEventForward: true,
           mobileScrollSupport: true,
           usePortrait: isMobileView(),
           startPage: 0,
@@ -1238,7 +1220,7 @@
         d'autoriser la navigation. Aucun message de préparation ne reste donc
         affiché au milieu du lecteur.
       */
-      await ensurePagesReady([0, 1, 2, 3]);
+      await ensurePagesReady([0, 1, 2, 3, 4, 5, 6, 7]);
 
       if (requestId !== activeLoadRequestId || generation !== renderGeneration) {
         return;
@@ -1348,12 +1330,12 @@
       const target = Math.max(0, current - 2);
       if (pageFlipIsFlipping()) {
         pendingNavigation = async function () {
-          await ensurePagesReady([target - 1, target]);
+          await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
           if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
         };
         return;
       }
-      await ensurePagesReady([target - 1, target]);
+      await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
       if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
     }
   );
@@ -1367,12 +1349,12 @@
       const target = Math.min(pdf.numPages - 1, current + 2);
       if (pageFlipIsFlipping()) {
         pendingNavigation = async function () {
-          await ensurePagesReady([target, target + 1]);
+          await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
           if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
         };
         return;
       }
-      await ensurePagesReady([target, target + 1]);
+      await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
       if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
     }
   );
@@ -1490,15 +1472,15 @@
 
 
       if (event.key === "ArrowRight") {
-        const target = Math.min((pdf ? pdf.numPages - 1 : 0), pageFlip.getCurrentPageIndex() + 2);
-        ensurePagesReady([target, target + 1]).then(function() {
+        const current = pageFlip.getCurrentPageIndex();
+        ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]).then(function() {
           if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
         });
       }
 
       if (event.key === "ArrowLeft") {
-        const target = Math.max(0, pageFlip.getCurrentPageIndex() - 2);
-        ensurePagesReady([target - 1, target]).then(function() {
+        const current = pageFlip.getCurrentPageIndex();
+        ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]).then(function() {
           if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
         });
       }
