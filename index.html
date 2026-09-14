@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V35</title>
+<title>Mondo Prod — Catalogue V36</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -156,10 +156,10 @@
   .book-arrow:hover:not(:disabled) { background:#fff; border-color:rgba(0,0,0,.20); box-shadow:0 8px 25px rgba(0,0,0,.16); transform:translateY(-50%) scale(1.04); }
   .book-arrow:active:not(:disabled) { transform:translateY(-50%) scale(.98); }
   .book-arrow:disabled { opacity:.25; cursor:default; box-shadow:none; }
-  #first-page { left:16px; }
-  #prev-page { left:74px; }
-  #next-page { right:74px; }
-  #last-page { right:16px; }
+  #first-page { left:0; }
+  #prev-page { left:54px; }
+  #next-page { right:54px; }
+  #last-page { right:0; }
 
   /* Zones de coins interactifs. Elles épousent exactement la zone du livre
      et transmettent les Pointer Events directement à PageFlip. */
@@ -170,8 +170,8 @@
   }
   .corner-zone {
     position:absolute;
-    width:82px;
-    height:82px;
+    width:104px;
+    height:104px;
     pointer-events:auto;
     touch-action:none;
     background:transparent;
@@ -248,10 +248,10 @@
     #catalogue-reader { padding-left:8px; padding-right:8px; }
     #book-area { padding:0 92px; min-height:0; }
     #book { width:min(100%, 1040px); }
-    #first-page { left:8px; }
-    #prev-page { left:54px; }
-    #next-page { right:54px; }
-    #last-page { right:8px; }
+    #first-page { left:0; }
+    #prev-page { left:46px; }
+    #next-page { right:46px; }
+    #last-page { right:0; }
   }
 
   @media (max-width: 700px) {
@@ -261,10 +261,10 @@
     #book-area { padding:0 66px; }
     #book { width:min(92vw, 470px); aspect-ratio:1 / 1.41421356; max-width:470px; margin-left:auto !important; margin-right:auto !important; }
     .book-arrow { width:40px; height:40px; font-size:27px; }
-    #first-page { left:4px; }
-    #prev-page { left:43px; }
-    #next-page { right:43px; }
-    #last-page { right:4px; }
+    #first-page { left:0; }
+    #prev-page { left:40px; }
+    #next-page { right:40px; }
+    #last-page { right:0; }
     #reader-controls { margin-top:6px; }
   }
 
@@ -273,8 +273,8 @@
     .lang-btn::after { display:none; }
     #book-area { padding:0 50px; }
     .book-arrow { width:36px; height:36px; font-size:24px; }
-    #prev-page { left:36px; }
-    #next-page { right:36px; }
+    #prev-page { left:34px; }
+    #next-page { right:34px; }
   }
 </style>
 </head>
@@ -1459,8 +1459,19 @@
 
   function bookPointFromPointer(event) {
     const rect = bookElement.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+
+    // Le livre est agrandi par CSS (zoom par défaut 1.14).
+    // PageFlip attend des coordonnées dans sa taille NON transformée.
+    // On reconvertit donc les coordonnées écran vers les coordonnées
+    // internes de PageFlip afin que le geste de coin reste parfaitement
+    // stable même avec le zoom et selon le navigateur.
+    const baseWidth = bookElement.clientWidth || (rect.width / Math.max(readerScale, 0.01));
+    const baseHeight = bookElement.clientHeight || (rect.height / Math.max(readerScale, 0.01));
+    const scaleX = rect.width / baseWidth || 1;
+    const scaleY = rect.height / baseHeight || 1;
+
+    const x = Math.max(0, Math.min(baseWidth, (event.clientX - rect.left) / scaleX));
+    const y = Math.max(0, Math.min(baseHeight, (event.clientY - rect.top) / scaleY));
     return { x: x, y: y };
   }
 
@@ -1471,6 +1482,7 @@
 
     zone.addEventListener('pointerdown', function(event) {
       if (!pageFlip || !pdf || pageFlipIsFlipping()) return;
+      if (event.button !== undefined && event.button !== 0) return;
 
       activePointerId = event.pointerId;
       try { zone.setPointerCapture(event.pointerId); } catch (error) {}
