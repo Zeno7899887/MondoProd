@@ -6,9 +6,15 @@
 <title>Mondo Prod — Catalogue</title>
 
 <style>
+  :root {
+    --reader-width: min(1080px, 100%);
+    --page-ratio: 1.41421356;
+  }
+
   * { box-sizing: border-box; }
 
-  html, body {
+  html,
+  body {
     margin: 0;
     padding: 0;
     background: transparent;
@@ -25,6 +31,7 @@
     margin: 0 auto;
     padding: 0;
     text-align: center;
+    color: #222;
   }
 
   /* =========================
@@ -42,7 +49,7 @@
   .lang-btn {
     appearance: none;
     border: 0;
-    outline: none;
+    outline: 0;
     background: transparent;
     padding: 2px;
     margin: 0;
@@ -51,11 +58,11 @@
     cursor: pointer;
     opacity: .42;
     transform: scale(1);
-    transition: opacity .2s ease, transform .2s ease;
+    transition: opacity .20s ease, transform .20s ease;
   }
 
   .lang-btn:hover {
-    opacity: .9;
+    opacity: .88;
     transform: scale(1.08);
   }
 
@@ -70,27 +77,37 @@
 
   #book-area {
     position: relative;
+    width: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
     padding: 0 58px;
   }
 
   #book {
     position: relative;
-    width: min(1080px, 100%);
-    aspect-ratio: 1.414 / 1;
-    perspective: 1800px;
+    width: var(--reader-width);
+    max-width: 1080px;
+    aspect-ratio: 1.41421356 / 1;
+    perspective: 2200px;
+    transform: translateZ(0);
+    isolation: isolate;
   }
 
+  /*
+    Le spread reste COMPLETEMENT FIXE pendant l'animation.
+    Seule la feuille de transition au-dessus tourne.
+  */
   #spread {
     position: absolute;
     inset: 0;
     display: flex;
-    background: #fff;
     overflow: hidden;
-    box-shadow: 0 18px 48px rgba(0,0,0,.18);
+    background: #fff;
+    box-shadow:
+      0 20px 50px rgba(0,0,0,.18),
+      0 1px 0 rgba(0,0,0,.08);
+    transform: translateZ(0);
   }
 
   .page {
@@ -99,9 +116,13 @@
     height: 100%;
     overflow: hidden;
     background: #fff;
+    flex: 0 0 50%;
+    transform: translateZ(0);
   }
 
   .page canvas {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -109,11 +130,11 @@
   }
 
   #left-page {
-    box-shadow: inset -10px 0 18px -18px rgba(0,0,0,.55);
+    box-shadow: inset -12px 0 22px -20px rgba(0,0,0,.55);
   }
 
   #right-page {
-    box-shadow: inset 10px 0 18px -18px rgba(0,0,0,.55);
+    box-shadow: inset 12px 0 22px -20px rgba(0,0,0,.55);
   }
 
   #seam {
@@ -122,21 +143,27 @@
     bottom: 0;
     left: 50%;
     width: 12px;
-    transform: translateX(-50%);
-    z-index: 5;
+    transform: translateX(-50%) translateZ(10px);
+    z-index: 6;
     pointer-events: none;
-    background: linear-gradient(
-      to right,
-      rgba(0,0,0,.08),
-      rgba(255,255,255,.34),
-      rgba(0,0,0,.08),
-      transparent
-    );
+    background:
+      linear-gradient(
+        to right,
+        rgba(0,0,0,.07),
+        rgba(255,255,255,.38) 36%,
+        rgba(0,0,0,.08) 62%,
+        transparent
+      );
   }
 
-  /* =========================
-     PAGE TOURNEE
-     ========================= */
+  /*
+    Page overlay.
+    IMPORTANT :
+    - taille fixe
+    - aucun scale pendant le flip
+    - transform uniquement en rotateY
+    => la page ne "saute" pas / ne change pas de place.
+  */
 
   #flip-page {
     display: none;
@@ -145,11 +172,13 @@
     right: 0;
     width: 50%;
     height: 100%;
-    z-index: 20;
+    z-index: 30;
     transform-origin: left center;
     transform-style: preserve-3d;
+    will-change: transform;
     backface-visibility: hidden;
     pointer-events: none;
+    transform: translateZ(0) rotateY(0deg);
   }
 
   #flip-front,
@@ -159,14 +188,46 @@
     overflow: hidden;
     background: #fff;
     backface-visibility: hidden;
+    transform-style: preserve-3d;
+  }
+
+  #flip-front {
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.05),
+      10px 0 30px rgba(0,0,0,.14);
   }
 
   #flip-back {
     transform: rotateY(180deg);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.05),
+      -10px 0 30px rgba(0,0,0,.12);
+  }
+
+  #flip-front::after,
+  #flip-back::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(0,0,0,0) 55%,
+        rgba(0,0,0,.06) 88%,
+        rgba(0,0,0,.13) 100%
+      );
+    opacity: .7;
+  }
+
+  #flip-back::after {
+    transform: scaleX(-1);
   }
 
   #flip-front canvas,
   #flip-back canvas {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
@@ -197,10 +258,13 @@
 
     cursor: pointer;
 
-    transition: background .18s ease, transform .18s ease, opacity .18s ease;
+    transition:
+      background .18s ease,
+      transform .18s ease,
+      opacity .18s ease;
   }
 
-  .book-arrow:hover {
+  .book-arrow:hover:not(:disabled) {
     background: rgba(0,0,0,.78);
     transform: translateY(-50%) scale(1.05);
   }
@@ -208,14 +272,13 @@
   .book-arrow:disabled {
     opacity: .18;
     cursor: default;
-    transform: translateY(-50%);
   }
 
   #prev-page { left: 4px; }
   #next-page { right: 4px; }
 
   /* =========================
-     CONTROLES
+     CONTRÔLES
      ========================= */
 
   #reader-controls {
@@ -229,12 +292,13 @@
   #reader-controls button {
     appearance: none;
     border: 0;
-    outline: none;
+    outline: 0;
     background: transparent;
     padding: 6px 9px;
     font-size: 22px;
     cursor: pointer;
     border-radius: 8px;
+    transition: background .18s ease;
   }
 
   #reader-controls button:hover {
@@ -262,6 +326,7 @@
      ========================= */
 
   @media (max-width: 700px) {
+
     #catalogue-languages {
       gap: 9px;
       margin-bottom: 13px;
@@ -277,15 +342,12 @@
 
     #book {
       width: min(92vw, 460px);
-      aspect-ratio: 1 / 1.414;
+      aspect-ratio: 1 / 1.41421356;
+      max-width: 460px;
     }
 
     #spread {
       display: block;
-    }
-
-    .page {
-      width: 100%;
     }
 
     #left-page {
@@ -294,6 +356,8 @@
 
     #right-page {
       display: block;
+      width: 100%;
+      height: 100%;
       box-shadow: none;
     }
 
@@ -303,6 +367,7 @@
 
     #flip-page {
       width: 100%;
+      transform-origin: left center;
     }
 
     .book-arrow {
@@ -341,6 +406,7 @@
     <div id="book">
 
       <div id="spread">
+
         <div id="left-page" class="page">
           <canvas id="left-canvas"></canvas>
         </div>
@@ -350,15 +416,25 @@
         </div>
 
         <div id="seam"></div>
+
       </div>
 
+
+      <!--
+        Feuille temporaire utilisée UNIQUEMENT pendant
+        l'animation. Le livre réel reste fixe dessous.
+      -->
+
       <div id="flip-page" aria-hidden="true">
+
         <div id="flip-front">
           <canvas id="flip-front-canvas"></canvas>
         </div>
+
         <div id="flip-back">
           <canvas id="flip-back-canvas"></canvas>
         </div>
+
       </div>
 
     </div>
@@ -367,12 +443,19 @@
 
   </div>
 
+
   <div id="reader-controls">
+
     <button id="zoom-out" type="button" aria-label="Réduire le zoom">−</button>
+
     <span id="page-number">1 / 1</span>
+
     <button id="zoom-in" type="button" aria-label="Augmenter le zoom">+</button>
+
     <button id="fullscreen" type="button" aria-label="Plein écran">⛶</button>
+
   </div>
+
 
   <div id="status"></div>
 
@@ -385,23 +468,24 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
+
 <script>
 (function () {
 
   "use strict";
 
+
   /* ========================================================
-     CONFIGURATION PDF
+     PDF.JS
      ======================================================== */
 
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 
-  /*
-    URLS PUBLIQUES EXACTES DE TON GITHUB PAGES.
-    Les PDF sont à la racine du repository.
-  */
+  /* ========================================================
+     URLS EXACTES GITHUB PAGES
+     ======================================================== */
 
   const catalogues = {
 
@@ -429,41 +513,75 @@
       document.querySelectorAll(".lang-btn")
     );
 
-  const leftCanvas =
-    document.getElementById("left-canvas");
+  const reader =
+    document.getElementById(
+      "catalogue-reader"
+    );
 
-  const rightCanvas =
-    document.getElementById("right-canvas");
+  const book =
+    document.getElementById(
+      "book"
+    );
 
-  const flipPage =
-    document.getElementById("flip-page");
-
-  const flipFrontCanvas =
-    document.getElementById("flip-front-canvas");
-
-  const flipBackCanvas =
-    document.getElementById("flip-back-canvas");
+  const spread =
+    document.getElementById(
+      "spread"
+    );
 
   const leftPage =
-    document.getElementById("left-page");
+    document.getElementById(
+      "left-page"
+    );
 
   const rightPage =
-    document.getElementById("right-page");
+    document.getElementById(
+      "right-page"
+    );
+
+  const leftCanvas =
+    document.getElementById(
+      "left-canvas"
+    );
+
+  const rightCanvas =
+    document.getElementById(
+      "right-canvas"
+    );
+
+  const flipPage =
+    document.getElementById(
+      "flip-page"
+    );
+
+  const flipFrontCanvas =
+    document.getElementById(
+      "flip-front-canvas"
+    );
+
+  const flipBackCanvas =
+    document.getElementById(
+      "flip-back-canvas"
+    );
 
   const prevButton =
-    document.getElementById("prev-page");
+    document.getElementById(
+      "prev-page"
+    );
 
   const nextButton =
-    document.getElementById("next-page");
+    document.getElementById(
+      "next-page"
+    );
 
   const pageNumber =
-    document.getElementById("page-number");
+    document.getElementById(
+      "page-number"
+    );
 
   const status =
-    document.getElementById("status");
-
-  const reader =
-    document.getElementById("catalogue-reader");
+    document.getElementById(
+      "status"
+    );
 
 
   /* ========================================================
@@ -472,13 +590,15 @@
 
   let pdf = null;
 
-  let activeLanguage = "fr";
-
   let current = 1;
 
   let zoom = 1;
 
+  let activeLanguage = "fr";
+
   let busy = false;
+
+  let resizeTimer = null;
 
 
   /* ========================================================
@@ -494,36 +614,48 @@
   }
 
 
-  function showStatus(message) {
+  function setActiveLanguage(
+    language
+  ) {
 
-    status.textContent = message;
-    status.style.display = "block";
+    buttons.forEach(
+      function (button) {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.lang === language
+        );
+
+      }
+    );
+
+  }
+
+
+  function showStatus(
+    message
+  ) {
+
+    status.textContent =
+      message;
+
+    status.style.display =
+      "block";
 
   }
 
 
   function hideStatus() {
 
-    status.style.display = "none";
+    status.style.display =
+      "none";
 
   }
 
 
-  function setActiveLanguage(language) {
-
-    buttons.forEach(function (button) {
-
-      button.classList.toggle(
-        "active",
-        button.dataset.lang === language
-      );
-
-    });
-
-  }
-
-
-  function clearCanvas(canvas) {
+  function clearCanvas(
+    canvas
+  ) {
 
     const ctx =
       canvas.getContext("2d");
@@ -539,17 +671,14 @@
 
 
   /*
-    Détecte la langue du site parent autant que possible :
-
-    1. ?lang=fr
-    2. URL du site parent contenant /fr/, /en/, /it/, /es/
-    3. document.referrer
-    4. <html lang="...">
-    5. navigateur
-    6. français par défaut
+    Détection de la langue du site parent.
   */
 
   function detectLanguage() {
+
+    /*
+      1. Paramètre ?lang=
+    */
 
     try {
 
@@ -558,7 +687,7 @@
           window.location.search
         );
 
-      const queryLanguage =
+      const queryLang =
         (
           params.get("lang") ||
           ""
@@ -567,41 +696,53 @@
         .split("-")[0];
 
 
-      if (catalogues[queryLanguage]) {
+      if (
+        catalogues[queryLang]
+      ) {
 
-        return queryLanguage;
+        return queryLang;
 
       }
 
     } catch (error) {}
 
+
+    /*
+      2. Document.referrer
+    */
 
     try {
 
       const ref =
-        document.referrer || "";
+        (
+          document.referrer ||
+          ""
+        ).toLowerCase();
 
-      const lowerRef =
-        ref.toLowerCase();
 
-      const refMatch =
-        lowerRef.match(
+      const match =
+        ref.match(
           /(?:^|[\/?&_=.-])(fr|en|it|es)(?:[\/?&_=.-]|$)/
         );
 
+
       if (
-        refMatch &&
-        catalogues[refMatch[1]]
+        match &&
+        catalogues[match[1]]
       ) {
 
-        return refMatch[1];
+        return match[1];
 
       }
 
     } catch (error) {}
 
 
-    const htmlLanguage =
+    /*
+      3. Langue HTML
+    */
+
+    const htmlLang =
       (
         document.documentElement.lang ||
         ""
@@ -611,17 +752,21 @@
 
 
     if (
-      catalogues[htmlLanguage]
+      catalogues[htmlLang]
     ) {
 
-      return htmlLanguage;
+      return htmlLang;
 
     }
 
 
+    /*
+      4. Langue du navigateur
+    */
+
     try {
 
-      const browserLanguage =
+      const browserLang =
         (
           navigator.language ||
           ""
@@ -629,11 +774,12 @@
         .toLowerCase()
         .split("-")[0];
 
+
       if (
-        catalogues[browserLanguage]
+        catalogues[browserLang]
       ) {
 
-        return browserLanguage;
+        return browserLang;
 
       }
 
@@ -646,12 +792,13 @@
 
 
   /* ========================================================
-     RENDU PDF
+     RENDU D'UNE PAGE PDF
      ======================================================== */
 
   async function renderPage(
     pageIndex,
-    canvas
+    canvas,
+    container
   ) {
 
     if (
@@ -679,43 +826,55 @@
       });
 
 
-    const container =
-      canvas.parentElement;
+    /*
+      Dimensions CSS EXACTES du compartiment.
+    */
 
-
-    const width =
+    const cssWidth =
       Math.max(
         1,
         container.clientWidth
       );
 
-
-    const height =
+    const cssHeight =
       Math.max(
         1,
         container.clientHeight
       );
 
 
+    /*
+      Le PDF est toujours entièrement contenu
+      dans la même zone : aucun changement de
+      position pendant le flip.
+    */
+
     const fitScale =
       Math.min(
-        width / baseViewport.width,
-        height / baseViewport.height
+        cssWidth / baseViewport.width,
+        cssHeight / baseViewport.height
       );
 
 
-    const pixelRatio =
+    /*
+      Haute densité de pixels.
+
+      2x sur écran normal.
+      Jusqu'à 3x sur écran Retina.
+      Cela réduit fortement la pixelisation.
+    */
+
+    const deviceRatio =
       Math.min(
         window.devicePixelRatio || 1,
-        2
+        3
       );
 
 
     const renderScale =
-      Math.max(
-        0.1,
-        fitScale * zoom * pixelRatio
-      );
+      fitScale *
+      zoom *
+      deviceRatio;
 
 
     const viewport =
@@ -725,11 +884,22 @@
 
 
     canvas.width =
-      Math.ceil(viewport.width);
+      Math.max(
+        1,
+        Math.round(viewport.width)
+      );
 
     canvas.height =
-      Math.ceil(viewport.height);
+      Math.max(
+        1,
+        Math.round(viewport.height)
+      );
 
+
+    /*
+      CSS fixe : le canvas occupe toujours
+      exactement la même zone.
+    */
 
     canvas.style.width =
       "100%";
@@ -742,12 +912,14 @@
       canvas.getContext(
         "2d",
         {
-          alpha: false
+          alpha: false,
+          willReadFrequently: false
         }
       );
 
 
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle =
+      "#ffffff";
 
     ctx.fillRect(
       0,
@@ -759,8 +931,20 @@
 
     await page.render({
 
-      canvasContext: ctx,
-      viewport: viewport
+      canvasContext:
+        ctx,
+
+      viewport:
+        viewport,
+
+      intent:
+        "display",
+
+      enableWebGL:
+        true,
+
+      renderInteractiveForms:
+        true
 
     }).promise;
 
@@ -768,10 +952,24 @@
 
 
   /* ========================================================
-     AFFICHAGE DU LIVRE
+     CALCUL DES DEUX PAGES
      ======================================================== */
 
-  function desktopSpread() {
+  function getSpread() {
+
+    if (isMobile()) {
+
+      return {
+        left: null,
+        right: current
+      };
+
+    }
+
+
+    /*
+      La couverture reste seule à droite.
+    */
 
     if (current === 1) {
 
@@ -789,19 +987,23 @@
         : current - 1;
 
 
+    const right =
+      left + 1 <= pdf.numPages
+        ? left + 1
+        : null;
+
+
     return {
-
-      left: left,
-
-      right:
-        left + 1 <= pdf.numPages
-          ? left + 1
-          : null
-
+      left,
+      right
     };
 
   }
 
+
+  /* ========================================================
+     RENDU DU LIVRE
+     ======================================================== */
 
   async function renderBook() {
 
@@ -819,7 +1021,8 @@
 
       await renderPage(
         current,
-        rightCanvas
+        rightCanvas,
+        rightPage
       );
 
 
@@ -832,40 +1035,46 @@
         "block";
 
 
-      const spread =
-        desktopSpread();
+      const pages =
+        getSpread();
 
 
-      if (spread.left) {
+      if (pages.left) {
 
         await renderPage(
-          spread.left,
-          leftCanvas
+          pages.left,
+          leftCanvas,
+          leftPage
         );
 
       } else {
 
-        clearCanvas(leftCanvas);
+        clearCanvas(
+          leftCanvas
+        );
 
       }
 
 
-      if (spread.right) {
+      if (pages.right) {
 
         await renderPage(
-          spread.right,
-          rightCanvas
+          pages.right,
+          rightCanvas,
+          rightPage
         );
 
       } else {
 
-        clearCanvas(rightCanvas);
+        clearCanvas(
+          rightCanvas
+        );
 
       }
 
 
       current =
-        spread.left || 1;
+        pages.left || 1;
 
     }
 
@@ -874,6 +1083,10 @@
 
   }
 
+
+  /* ========================================================
+     CONTRÔLES
+     ======================================================== */
 
   function updateControls() {
 
@@ -889,11 +1102,11 @@
 
     } else {
 
-      const spread =
-        desktopSpread();
+      const pages =
+        getSpread();
 
 
-      if (!spread.left) {
+      if (!pages.left) {
 
         pageNumber.textContent =
           "1 / " +
@@ -902,11 +1115,11 @@
       } else {
 
         pageNumber.textContent =
-          spread.left +
+          pages.left +
           "–" +
           (
-            spread.right ||
-            spread.left
+            pages.right ||
+            pages.left
           ) +
           " / " +
           pdf.numPages;
@@ -927,7 +1140,189 @@
 
 
   /* ========================================================
-     ANIMATION PAGE SUIVANTE
+     PRÉPARER LA PAGE EN TRAIN DE TOURNER
+     ======================================================== */
+
+  async function prepareFlip(
+    direction
+  ) {
+
+    if (!pdf) return false;
+
+
+    /*
+      Sur mobile : aucune double-page.
+      On change simplement de page avec
+      un léger mouvement horizontal/fondu.
+    */
+
+    if (isMobile()) {
+
+      return true;
+
+    }
+
+
+    const pages =
+      getSpread();
+
+
+    if (
+      direction === "next"
+    ) {
+
+      const oldRight =
+        pages.right || current;
+
+
+      const newLeft =
+        oldRight + 1;
+
+
+      if (
+        newLeft > pdf.numPages
+      ) {
+
+        return false;
+
+      }
+
+
+      /*
+        Même compartiment exact que la page de droite.
+      */
+
+      await renderPage(
+        oldRight,
+        flipFrontCanvas,
+        rightPage
+      );
+
+
+      await renderPage(
+        newLeft,
+        flipBackCanvas,
+        rightPage
+      );
+
+
+      /*
+        On force exactement la même largeur/hauteur
+        avant d'afficher la feuille.
+      */
+
+      flipPage.style.width =
+        rightPage.getBoundingClientRect().width +
+        "px";
+
+      flipPage.style.height =
+        rightPage.getBoundingClientRect().height +
+        "px";
+
+      flipPage.style.right =
+        "0";
+
+      flipPage.style.left =
+        "auto";
+
+      flipPage.style.transformOrigin =
+        "left center";
+
+      flipPage.style.display =
+        "block";
+
+      flipPage.style.transition =
+        "none";
+
+      flipPage.style.transform =
+        "translateZ(0) rotateY(0deg)";
+
+
+      return true;
+
+    }
+
+
+    /*
+      Retour arrière :
+      on utilise la page de gauche comme
+      feuille de départ.
+    */
+
+    if (!pages.left) {
+
+      return false;
+
+    }
+
+
+    const previousRight =
+      pages.left - 1;
+
+
+    if (
+      previousRight < 1
+    ) {
+
+      return false;
+
+    }
+
+
+    const previousLeft =
+      previousRight - 1 >= 1
+        ? previousRight - 1
+        : null;
+
+
+    await renderPage(
+      pages.left,
+      flipFrontCanvas,
+      leftPage
+    );
+
+
+    await renderPage(
+      previousRight,
+      flipBackCanvas,
+      leftPage
+    );
+
+
+    flipPage.style.width =
+      leftPage.getBoundingClientRect().width +
+      "px";
+
+    flipPage.style.height =
+      leftPage.getBoundingClientRect().height +
+      "px";
+
+    flipPage.style.left =
+      "0";
+
+    flipPage.style.right =
+      "auto";
+
+    flipPage.style.transformOrigin =
+      "right center";
+
+    flipPage.style.display =
+      "block";
+
+    flipPage.style.transition =
+      "none";
+
+    flipPage.style.transform =
+      "translateZ(0) rotateY(0deg)";
+
+
+    return true;
+
+  }
+
+
+  /* ========================================================
+     PAGE SUIVANTE
      ======================================================== */
 
   async function nextPage() {
@@ -952,6 +1347,29 @@
 
         current += 1;
 
+        /*
+          Petit mouvement horizontal naturel,
+          sans déplacer la page de façon excessive.
+        */
+
+        rightPage.animate(
+          [
+            {
+              opacity: 0.72,
+              transform: "translateX(12px)"
+            },
+            {
+              opacity: 1,
+              transform: "translateX(0)"
+            }
+          ],
+          {
+            duration: 220,
+            easing: "cubic-bezier(.22,.61,.36,1)"
+          }
+        );
+
+
         await renderBook();
 
         return;
@@ -959,47 +1377,15 @@
       }
 
 
-      const spread =
-        desktopSpread();
+      const prepared =
+        await prepareFlip(
+          "next"
+        );
 
 
-      const oldRight =
-        spread.right || current;
-
-
-      const newLeft =
-        oldRight + 1;
-
-
-      if (
-        newLeft > pdf.numPages
-      ) {
-
+      if (!prepared) {
         return;
-
       }
-
-
-      await renderPage(
-        oldRight,
-        flipFrontCanvas
-      );
-
-
-      await renderPage(
-        newLeft,
-        flipBackCanvas
-      );
-
-
-      flipPage.style.display =
-        "block";
-
-      flipPage.style.transition =
-        "none";
-
-      flipPage.style.transform =
-        "rotateY(0deg)";
 
 
       requestAnimationFrame(
@@ -1009,10 +1395,10 @@
             function () {
 
               flipPage.style.transition =
-                "transform .58s cubic-bezier(.22,.61,.36,1)";
+                "transform .68s cubic-bezier(.22,.61,.36,1)";
 
               flipPage.style.transform =
-                "rotateY(-180deg)";
+                "translateZ(0) rotateY(-180deg)";
 
             }
           );
@@ -1026,7 +1412,7 @@
 
           setTimeout(
             resolve,
-            600
+            700
           );
 
         }
@@ -1037,14 +1423,29 @@
         "none";
 
       flipPage.style.transition =
-        "";
+        "none";
 
       flipPage.style.transform =
-        "rotateY(0deg)";
+        "translateZ(0) rotateY(0deg)";
 
+
+      /*
+        Le nouveau spread est affiché
+        UNIQUEMENT après la fin du flip.
+      */
 
       current =
-        newLeft;
+        getSpread().right + 1;
+
+
+      if (
+        current > pdf.numPages
+      ) {
+
+        current =
+          pdf.numPages;
+
+      }
 
 
       await renderBook();
@@ -1059,7 +1460,7 @@
 
 
   /* ========================================================
-     ANIMATION PAGE PRÉCÉDENTE
+     PAGE PRÉCÉDENTE
      ======================================================== */
 
   async function previousPage() {
@@ -1084,6 +1485,25 @@
 
         current -= 1;
 
+
+        rightPage.animate(
+          [
+            {
+              opacity: 0.72,
+              transform: "translateX(-12px)"
+            },
+            {
+              opacity: 1,
+              transform: "translateX(0)"
+            }
+          ],
+          {
+            duration: 220,
+            easing: "cubic-bezier(.22,.61,.36,1)"
+          }
+        );
+
+
         await renderBook();
 
         return;
@@ -1091,66 +1511,28 @@
       }
 
 
-      const spread =
-        desktopSpread();
+      const pages =
+        getSpread();
 
 
-      if (!spread.left) {
+      if (!pages.left) {
 
         return;
 
       }
 
 
-      const oldLeft =
-        spread.left;
+      const prepared =
+        await prepareFlip(
+          "previous"
+        );
 
 
-      const previousRight =
-        oldLeft - 1;
+      if (!prepared) {
 
+        return;
 
-      const previousLeft =
-        previousRight - 1 >= 1
-          ? previousRight - 1
-          : null;
-
-
-      await renderPage(
-        oldLeft,
-        flipFrontCanvas
-      );
-
-
-      await renderPage(
-        previousRight,
-        flipBackCanvas
-      );
-
-
-      /*
-        Pour le retour, le flip doit partir
-        de la page gauche et tourner dans
-        l'autre sens.
-      */
-
-      flipPage.style.display =
-        "block";
-
-      flipPage.style.right =
-        "auto";
-
-      flipPage.style.left =
-        "0";
-
-      flipPage.style.transformOrigin =
-        "right center";
-
-      flipPage.style.transition =
-        "none";
-
-      flipPage.style.transform =
-        "rotateY(0deg)";
+      }
 
 
       requestAnimationFrame(
@@ -1160,17 +1542,15 @@
             function () {
 
               flipPage.style.transition =
-                "transform .58s cubic-bezier(.22,.61,.36,1)";
+                "transform .68s cubic-bezier(.22,.61,.36,1)";
 
               flipPage.style.transform =
-                "rotateY(180deg)";
+                "translateZ(0) rotateY(180deg)";
 
             }
-
           );
 
         }
-
       );
 
 
@@ -1179,7 +1559,7 @@
 
           setTimeout(
             resolve,
-            600
+            700
           );
 
         }
@@ -1190,23 +1570,21 @@
         "none";
 
       flipPage.style.transition =
-        "";
+        "none";
 
       flipPage.style.transform =
-        "rotateY(0deg)";
+        "translateZ(0) rotateY(0deg)";
 
-      flipPage.style.right =
-        "0";
 
-      flipPage.style.left =
-        "auto";
-
-      flipPage.style.transformOrigin =
-        "left center";
-
+      /*
+        On revient au spread précédent.
+      */
 
       current =
-        previousLeft || 1;
+        Math.max(
+          1,
+          pages.left - 2
+        );
 
 
       await renderBook();
@@ -1221,14 +1599,16 @@
 
 
   /* ========================================================
-     CHARGEMENT D'UN CATALOGUE
+     CHARGEMENT DU CATALOGUE
      ======================================================== */
 
   async function loadCatalogue(
     language
   ) {
 
-    if (!catalogues[language]) {
+    if (
+      !catalogues[language]
+    ) {
 
       language = "fr";
 
@@ -1247,10 +1627,25 @@
     hideStatus();
 
 
+    /*
+      Annule visuellement un éventuel flip.
+    */
+
+    flipPage.style.display =
+      "none";
+
+    flipPage.style.transition =
+      "none";
+
+    flipPage.style.transform =
+      "translateZ(0) rotateY(0deg)";
+
+
     try {
 
       /*
-        URL ABSOLUE DE GITHUB PAGES
+        IMPORTANT :
+        les URLS ABSOLUES sont utilisées ici.
       */
 
       const response =
@@ -1285,6 +1680,7 @@
 
 
       current = 1;
+
       zoom = 1;
 
 
@@ -1301,12 +1697,11 @@
 
       showStatus(
         "Impossible de charger le catalogue. " +
-        "Erreur : " +
         (
           error &&
           error.message
             ? error.message
-            : "erreur inconnue"
+            : "Erreur inconnue."
         )
       );
 
@@ -1316,42 +1711,8 @@
 
 
   /* ========================================================
-     CLIC DRAPEAUX
+     ZOOM
      ======================================================== */
-
-  buttons.forEach(
-    function (button) {
-
-      button.addEventListener(
-        "click",
-        function () {
-
-          loadCatalogue(
-            button.dataset.lang
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-  /* ========================================================
-     BOUTONS
-     ======================================================== */
-
-  prevButton.addEventListener(
-    "click",
-    previousPage
-  );
-
-
-  nextButton.addEventListener(
-    "click",
-    nextPage
-  );
-
 
   document
     .getElementById("zoom-in")
@@ -1389,6 +1750,10 @@
     );
 
 
+  /* ========================================================
+     PLEIN ÉCRAN
+     ======================================================== */
+
   document
     .getElementById("fullscreen")
     .addEventListener(
@@ -1412,7 +1777,7 @@
         } catch (error) {
 
           console.error(
-            "Fullscreen error:",
+            "Fullscreen:",
             error
           );
 
@@ -1423,83 +1788,143 @@
 
 
   /* ========================================================
+     DRAPEAUX
+     ======================================================== */
+
+  buttons.forEach(
+    function (button) {
+
+      button.addEventListener(
+        "click",
+        function () {
+
+          if (
+            button.dataset.lang ===
+            activeLanguage
+          ) {
+
+            return;
+
+          }
+
+
+          loadCatalogue(
+            button.dataset.lang
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ========================================================
+     CLAVIER
+     ======================================================== */
+
+  document.addEventListener(
+    "keydown",
+    function (event) {
+
+      if (
+        event.key === "ArrowRight"
+      ) {
+
+        nextPage();
+
+      }
+
+      if (
+        event.key === "ArrowLeft"
+      ) {
+
+        previousPage();
+
+      }
+
+    }
+  );
+
+
+  /* ========================================================
      SWIPE MOBILE
      ======================================================== */
 
   let touchStartX = 0;
-
   let touchStartY = 0;
 
 
-  document
-    .getElementById("book")
-    .addEventListener(
-      "touchstart",
-      function (event) {
+  book.addEventListener(
+    "touchstart",
+    function (event) {
 
-        const touch =
-          event.changedTouches[0];
+      const touch =
+        event.changedTouches[0];
 
-        touchStartX =
-          touch.screenX;
+      touchStartX =
+        touch.screenX;
 
-        touchStartY =
-          touch.screenY;
+      touchStartY =
+        touch.screenY;
 
-      },
-      {
-        passive: true
+    },
+    {
+      passive: true
+    }
+  );
+
+
+  book.addEventListener(
+    "touchend",
+    function (event) {
+
+      const touch =
+        event.changedTouches[0];
+
+      const dx =
+        touchStartX -
+        touch.screenX;
+
+      const dy =
+        touchStartY -
+        touch.screenY;
+
+
+      /*
+        On ne déclenche le swipe que si
+        le geste est principalement horizontal.
+      */
+
+      if (
+        Math.abs(dx) < 45 ||
+        Math.abs(dx) < Math.abs(dy)
+      ) {
+
+        return;
+
       }
-    );
 
 
-  document
-    .getElementById("book")
-    .addEventListener(
-      "touchend",
-      function (event) {
+      if (dx > 0) {
 
-        const touch =
-          event.changedTouches[0];
+        nextPage();
 
-        const dx =
-          touchStartX -
-          touch.screenX;
+      } else {
 
-        const dy =
-          touchStartY -
-          touch.screenY;
+        previousPage();
 
-
-        if (
-          Math.abs(dx) < 45 ||
-          Math.abs(dx) < Math.abs(dy)
-        ) {
-
-          return;
-
-        }
-
-
-        if (dx > 0) {
-
-          nextPage();
-
-        } else {
-
-          previousPage();
-
-        }
-
-      },
-      {
-        passive: true
       }
-    );
+
+    },
+    {
+      passive: true
+    }
+  );
 
 
   /* ========================================================
-     REDIMENSIONNEMENT
+     RESIZE
      ======================================================== */
 
   window.addEventListener(
@@ -1507,20 +1932,22 @@
     function () {
 
       clearTimeout(
-        window.__catalogueResize
+        resizeTimer
       );
 
 
-      window.__catalogueResize =
+      resizeTimer =
         setTimeout(
           function () {
 
-            if (pdf) {
+            if (pdf && !busy) {
+
               renderBook();
+
             }
 
           },
-          160
+          180
         );
 
     }
