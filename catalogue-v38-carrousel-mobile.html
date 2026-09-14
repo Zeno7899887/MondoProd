@@ -1,0 +1,2036 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mondo Prod — Catalogue V38</title>
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; background:transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, Helvetica, sans-serif; overflow-x:hidden; color:#1d1d1f; }
+
+  #catalogue-reader {
+    width:100%;
+    max-width:1360px;
+    margin:0 auto;
+    padding:10px 14px 16px;
+    text-align:center;
+    isolation:isolate;
+  }
+
+  #catalogue-languages {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:8px;
+    margin:0 0 14px;
+  }
+
+  .lang-btn {
+    appearance:none;
+    position:relative;
+    z-index:1000;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-width:74px;
+    height:38px;
+    padding:0 11px;
+    border:1px solid rgba(0,0,0,.10);
+    border-radius:999px;
+    outline:0;
+    background:rgba(255,255,255,.84);
+    color:rgba(0,0,0,.58);
+    box-shadow:0 2px 10px rgba(0,0,0,.06);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    cursor:pointer;
+    font-size:18px;
+    line-height:1;
+    opacity:.72;
+    transform:translateY(0);
+    transition:background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
+    pointer-events:auto;
+  }
+  .lang-btn::after {
+    content:attr(aria-label);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.02em;
+  }
+  .lang-btn:hover { opacity:1; transform:translateY(-1px); background:#fff; box-shadow:0 5px 16px rgba(0,0,0,.10); }
+  .lang-btn.active { opacity:1; color:#111; background:#fff; border-color:rgba(0,0,0,.20); box-shadow:0 5px 18px rgba(0,0,0,.12); }
+  .lang-btn:focus-visible { box-shadow:0 0 0 3px rgba(0,0,0,.12), 0 5px 18px rgba(0,0,0,.12); }
+
+  #book-area {
+    position:relative;
+    width:100%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:0 142px;
+    min-height:clamp(320px, 62vw, 790px);
+  }
+
+  #book {
+    position:relative;
+    width:min(1160px, 100%);
+    max-width:1160px;
+    aspect-ratio:1.41421356 / 1;
+    margin:0 auto;
+    transform:translateZ(0);
+    transform-style:preserve-3d;
+    background:transparent !important;
+    overflow:visible;
+  }
+
+  #book .stf,
+  #book .stf__wrapper,
+  #book .stf__block {
+    margin-left:auto !important;
+    margin-right:auto !important;
+  }
+  #book .stf { left:0 !important; right:0 !important; }
+
+  #book, #book .pdf-page, .book-arrow, .lang-btn { user-select:none; -webkit-user-select:none; }
+
+  #book .pdf-page {
+    background:#fff;
+    overflow:hidden;
+    padding:0;
+    margin:0;
+    box-shadow:none;
+  }
+  #book .pdf-page canvas {
+    display:block;
+    width:100%;
+    height:100%;
+    background:#fff;
+    object-fit:fill;
+    image-rendering:auto;
+  }
+
+  /*
+     Les pages sont rendues en images PNG lossless.
+     C'est volontaire : PageFlip clone les pages HTML pendant une
+     vraie rotation, et les images conservent leur contenu dans ces clones
+     contrairement aux canvas HTML clonés.
+  */
+  #book .pdf-page img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:fill;
+    background:#fff;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+
+  .book-arrow {
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:100;
+    width:46px;
+    height:46px;
+    appearance:none;
+    border:1px solid rgba(0,0,0,.12);
+    border-radius:50%;
+    background:rgba(255,255,255,.90);
+    color:#1b1b1b;
+    box-shadow:0 5px 20px rgba(0,0,0,.10);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    font-size:31px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 0 2px;
+    cursor:pointer;
+    transition:background .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease, border-color .18s ease;
+  }
+  .book-arrow:hover:not(:disabled) { background:#fff; border-color:rgba(0,0,0,.20); box-shadow:0 8px 25px rgba(0,0,0,.16); transform:translateY(-50%) scale(1.04); }
+  .book-arrow:active:not(:disabled) { transform:translateY(-50%) scale(.98); }
+  .book-arrow:disabled { opacity:.25; cursor:default; box-shadow:none; }
+  #first-page { left:0; }
+  #prev-page { left:54px; }
+  #next-page { right:54px; }
+  #last-page { right:0; }
+
+  /* Zones de coins interactifs. Elles épousent exactement la zone du livre
+     et transmettent les Pointer Events directement à PageFlip. */
+  #corner-layer {
+    position:absolute;
+    z-index:150;
+    pointer-events:none;
+  }
+  .corner-zone {
+    position:absolute;
+    width:104px;
+    height:104px;
+    pointer-events:auto;
+    touch-action:none;
+    background:transparent;
+  }
+  #corner-tl { left:0; top:0; cursor:pointer; }
+  #corner-bl { left:0; bottom:0; cursor:pointer; }
+  #corner-tr { right:0; top:0; cursor:pointer; }
+  #corner-br { right:0; bottom:0; cursor:pointer; }
+
+  #catalogue-reader {
+    position:relative;
+  }
+
+  #loading {
+    position:absolute;
+    inset:0;
+    z-index:5000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+    opacity:0;
+    visibility:hidden;
+  }
+
+  #loading[hidden] {
+    display:none !important;
+    opacity:0 !important;
+    visibility:hidden !important;
+  }
+
+  #catalogue-reader:not([data-loading="true"]) #loading {
+    opacity:0;
+    visibility:hidden;
+  }
+
+  #catalogue-reader[data-loading="true"] #loading:not([hidden]) {
+    opacity:1;
+    visibility:visible;
+  }
+
+  #loading-globe {
+    width:72px;
+    height:72px;
+    object-fit:contain;
+    animation:catalogueGlobeSpin 6s linear infinite;
+  }
+
+  @keyframes catalogueGlobeSpin {
+    from { transform:rotate(0deg); }
+    to { transform:rotate(360deg); }
+  }
+
+  #catalogue-reader:not([data-ready="true"]) #book {
+    pointer-events:none;
+  }
+
+  #status {
+    display:none;
+    max-width:780px;
+    margin:12px auto 0;
+    padding:10px 14px;
+    border:1px solid rgba(190,30,45,.18);
+    border-radius:10px;
+    background:rgba(255,245,246,.86);
+    color:#8b2833;
+    font-size:13px;
+    line-height:1.45;
+  }
+
+  #reader-controls {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:4px;
+    min-height:42px;
+    margin:8px 0 0;
+    padding:4px 8px;
+    border:1px solid rgba(0,0,0,.08);
+    border-radius:999px;
+    width:max-content;
+    max-width:100%;
+    margin-left:auto;
+    margin-right:auto;
+    background:rgba(255,255,255,.68);
+    box-shadow:0 2px 12px rgba(0,0,0,.05);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+  #reader-controls button {
+    appearance:none;
+    min-width:34px;
+    height:32px;
+    border:0;
+    outline:0;
+    background:transparent;
+    color:rgba(0,0,0,.70);
+    padding:0 8px;
+    font-size:20px;
+    cursor:pointer;
+    border-radius:999px;
+    transition:background .16s ease, color .16s ease, transform .16s ease;
+  }
+  #reader-controls button:hover { background:rgba(0,0,0,.06); color:#111; }
+  #reader-controls button:focus-visible { box-shadow:0 0 0 3px rgba(0,0,0,.10); }
+  #page-number { min-width:104px; padding:0 8px; font-size:12px; font-weight:600; color:rgba(0,0,0,.62); font-variant-numeric:tabular-nums; text-align:center; }
+
+  #catalogue-reader:fullscreen { width:100vw; max-width:none; height:100vh; background:#fff; display:flex; flex-direction:column; justify-content:center; padding:12px 14px; }
+  #catalogue-reader:fullscreen #book-area { flex:1 1 auto; min-height:0; }
+
+  @media (max-width: 900px) {
+    #catalogue-reader { padding-left:8px; padding-right:8px; }
+    #book-area { padding:0 92px; min-height:0; }
+    #book { width:min(100%, 1040px); }
+    #first-page { left:0; }
+    #prev-page { left:46px; }
+    #next-page { right:46px; }
+    #last-page { right:0; }
+  }
+
+  /* =========================================================
+     CARROUSEL MOBILE (≤700px)
+     Le mode PC (PageFlip / #book) n'est jamais modifié.
+     En dessous de 700px, #book est masqué et remplacé visuellement
+     par #mobile-carousel : les pages apparaissent une par une,
+     centrées, avec un simple fondu (pas d'effet de livre).
+     Les flèches de navigation passent sous l'image (et non sur les
+     côtés) pour ne jamais gêner la lecture du catalogue au doigt.
+     ========================================================= */
+
+  #mobile-carousel {
+    display:none;
+    position:relative;
+    width:min(92vw, 470px);
+    max-width:470px;
+    aspect-ratio:1 / 1.41421356;
+    margin:0 auto;
+  }
+
+  #mobile-carousel .carousel-slide {
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    transform:scale(.97);
+    pointer-events:none;
+    transition:opacity .42s ease, transform .42s ease;
+    background:#fff;
+    border-radius:8px;
+    overflow:hidden;
+    box-shadow:0 10px 34px rgba(0,0,0,.14);
+  }
+
+  #mobile-carousel .carousel-slide.is-active {
+    opacity:1;
+    transform:scale(1);
+    pointer-events:auto;
+    z-index:2;
+  }
+
+  #mobile-carousel .carousel-slide img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:fill;
+    background:#fff;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
+
+  /* Rangée de flèches mobile, affichée uniquement en dessous de 700px,
+     positionnée directement sous le carrousel (flux normal, pas absolute). */
+  #mobile-arrows {
+    display:none;
+    justify-content:center;
+    align-items:center;
+    gap:10px;
+    margin:10px auto 0;
+  }
+
+  #mobile-arrows .book-arrow {
+    position:static;
+    transform:none;
+  }
+  #mobile-arrows .book-arrow:hover:not(:disabled) { transform:scale(1.04); }
+  #mobile-arrows .book-arrow:active:not(:disabled) { transform:scale(.98); }
+
+  @media (max-width: 700px) {
+    #catalogue-languages { gap:6px; margin-bottom:10px; }
+    .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
+    .lang-btn::after { font-size:10px; }
+
+    /* Le conteneur épouse la hauteur réelle du contenu : plus de
+       min-height fixe hérité du mode PC, ni de gros espaces latéraux. */
+    #book-area { padding:0; min-height:0; display:block; }
+    #book { width:min(92vw, 470px); aspect-ratio:1 / 1.41421356; max-width:470px; margin-left:auto !important; margin-right:auto !important; }
+
+    /* En mobile, les flèches latérales du mode PC sont masquées :
+       elles sont remplacées par la rangée #mobile-arrows sous l'image. */
+    body.is-mobile-reader .book-arrow { display:none !important; }
+    body.is-mobile-reader #mobile-arrows { display:flex; }
+    body.is-mobile-reader #mobile-arrows .book-arrow { display:flex !important; }
+
+    body.is-mobile-reader #book { display:none !important; }
+    body.is-mobile-reader #mobile-carousel { display:block; }
+    body.is-mobile-reader #corner-layer { display:none !important; }
+
+    /* Espacements resserrés pour que la page ne s'étire pas inutilement. */
+    body.is-mobile-reader #catalogue-reader { padding:8px 8px 8px; }
+    body.is-mobile-reader #reader-controls { margin-top:8px; }
+    body.is-mobile-reader #catalogue-reader { min-height:0; }
+  }
+
+  @media (max-width: 430px) {
+    .lang-btn { min-width:0; width:44px; padding:0; }
+    .lang-btn::after { display:none; }
+    body.is-mobile-reader .book-arrow { width:36px; height:36px; font-size:24px; }
+  }
+</style>
+</head>
+
+<body>
+
+<div id="catalogue-reader" data-loading="false">
+
+  <div id="loading" hidden aria-hidden="true">
+    <img id="loading-globe" alt="" src="https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/Catalogue%20FR.pdf_11-2.png">
+  </div>
+
+  <!-- =======================================================
+       DRAPEAUX
+       ======================================================= -->
+
+  <div id="catalogue-languages"
+       aria-label="Choisir la langue du catalogue">
+
+    <button
+      class="lang-btn"
+      data-lang="fr"
+      type="button"
+      aria-label="Français">
+      🇫🇷
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="en"
+      type="button"
+      aria-label="English">
+      🇬🇧
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="it"
+      type="button"
+      aria-label="Italiano">
+      🇮🇹
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="es"
+      type="button"
+      aria-label="Español">
+      🇪🇸
+    </button>
+
+  </div>
+
+
+  <!-- =======================================================
+       LIVRE
+       ======================================================= -->
+
+  <div id="book-area">
+
+    <button
+      id="first-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Première page">
+      «
+    </button>
+
+
+    <button
+      id="prev-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page précédente">
+      ‹
+    </button>
+
+
+    <div id="book"></div>
+
+    <!-- Carrousel mobile : images centrées, apparition en fondu, une à la fois. -->
+    <div id="mobile-carousel" aria-hidden="true"></div>
+
+    <div id="corner-layer" aria-hidden="true">
+      <div id="corner-tl" class="corner-zone"></div>
+      <div id="corner-bl" class="corner-zone"></div>
+      <div id="corner-tr" class="corner-zone"></div>
+      <div id="corner-br" class="corner-zone"></div>
+    </div>
+
+
+    <button
+      id="next-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page suivante">
+      ›
+    </button>
+
+
+    <button
+      id="last-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Dernière page">
+      »
+    </button>
+
+  </div>
+
+  <!-- =======================================================
+       FLÈCHES MOBILE (sous le catalogue, visibles ≤700px uniquement)
+       ======================================================= -->
+
+  <div id="mobile-arrows" aria-hidden="true">
+
+    <button
+      id="mobile-first-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Première page">
+      «
+    </button>
+
+    <button
+      id="mobile-prev-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page précédente">
+      ‹
+    </button>
+
+    <button
+      id="mobile-next-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page suivante">
+      ›
+    </button>
+
+    <button
+      id="mobile-last-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Dernière page">
+      »
+    </button>
+
+  </div>
+
+
+  <!-- =======================================================
+       CONTRÔLES
+       ======================================================= -->
+
+  <div id="reader-controls">
+
+    <button
+      id="zoom-out"
+      type="button"
+      aria-label="Réduire le zoom">
+      −
+    </button>
+
+    <span id="page-number">
+      1 / 1
+    </span>
+
+    <button
+      id="zoom-in"
+      type="button"
+      aria-label="Augmenter le zoom">
+      +
+    </button>
+
+  </div>
+
+
+  <div id="status"></div>
+
+</div>
+
+
+<!-- =========================================================
+     PDF.JS
+     ========================================================= -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+
+<!-- =========================================================
+     PAGEFLIP
+     ========================================================= -->
+
+<script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+
+
+<script>
+
+(function () {
+
+  "use strict";
+
+
+  /* ========================================================
+     PDF.JS
+     ======================================================== */
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+
+  /* ========================================================
+     URLS EXACTES
+     ======================================================== */
+
+  const catalogues = {
+
+    fr:
+      "https://zeno7899887.github.io/MondoProd/catalogue-fr.pdf",
+
+    en:
+      "https://zeno7899887.github.io/MondoProd/catalogue-en.pdf",
+
+    it:
+      "https://zeno7899887.github.io/MondoProd/catalogue-it.pdf",
+
+    es:
+      "https://zeno7899887.github.io/MondoProd/catalogue-es.pdf"
+
+  };
+
+  /* Langue par défaut imposée : le catalogue doit toujours s'ouvrir en
+     français au premier chargement, sur PC comme sur mobile, quelle que
+     soit la langue du navigateur ou du document. */
+  const DEFAULT_LANGUAGE = "fr";
+
+
+  /* ========================================================
+     ÉLÉMENTS
+     ======================================================== */
+
+  const bookElement =
+    document.getElementById("book");
+
+  const mobileCarousel =
+    document.getElementById("mobile-carousel");
+
+  const loading =
+    document.getElementById("loading");
+
+  const status =
+    document.getElementById("status");
+
+  const pageNumber =
+    document.getElementById("page-number");
+
+  const firstButton =
+    document.getElementById("first-page");
+
+  const prevButton =
+    document.getElementById("prev-page");
+
+  const nextButton =
+    document.getElementById("next-page");
+
+  const lastButton =
+    document.getElementById("last-page");
+
+  /* Boutons de la rangée mobile, sous le catalogue. */
+  const mobileFirstButton =
+    document.getElementById("mobile-first-page");
+
+  const mobilePrevButton =
+    document.getElementById("mobile-prev-page");
+
+  const mobileNextButton =
+    document.getElementById("mobile-next-page");
+
+  const mobileLastButton =
+    document.getElementById("mobile-last-page");
+
+const zoomInButton =
+    document.getElementById("zoom-in");
+
+  const zoomOutButton =
+    document.getElementById("zoom-out");
+
+  const languageButtons =
+    Array.from(
+      document.querySelectorAll(".lang-btn")
+    );
+
+  const cornerLayer = document.getElementById("corner-layer");
+  const cornerTL = document.getElementById("corner-tl");
+  const cornerBL = document.getElementById("corner-bl");
+  const cornerTR = document.getElementById("corner-tr");
+  const cornerBR = document.getElementById("corner-br");
+
+
+  /* ========================================================
+     ÉTAT
+     ======================================================== */
+
+  let pageFlip = null;
+
+  let pdf = null;
+
+  let activeLanguage = "fr";
+  let requestedLanguage = "fr";
+
+  let loadRequestId = 0;
+  let activeLoadRequestId = 0;
+  let loadingCatalogue = false;
+
+  /* Cache des téléchargements PDF. On ne touche pas à la mécanique d'affichage
+     de V28 : on accélère seulement l'arrivée des données des autres langues. */
+  const catalogueBufferPromises = new Map();
+
+  /* Chaque page rendue est conservée pour le PDF actuellement affiché. */
+  const renderedPages = new Set();
+  const renderingPages = new Map();
+  const pageImageUrls = new Map();
+  let renderGeneration = 0;
+
+  /* Pages préparées avant toute interaction utilisateur. */
+  let readyPromise = Promise.resolve();
+
+  /* ----------------------------------------------------------
+     ÉTAT SPÉCIFIQUE AU CARROUSEL MOBILE
+     Complètement séparé de PageFlip : n'affecte jamais le mode PC.
+     ---------------------------------------------------------- */
+  let mobileMode = false;
+  let carouselIndex = 0;
+  let carouselSlides = [];
+
+
+  /* ========================================================
+     UTILITAIRES
+     ======================================================== */
+
+  function setActiveLanguage(language) {
+
+    languageButtons.forEach(
+      function (button) {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.lang === language
+        );
+
+      }
+    );
+
+  }
+
+
+  function showLoading(message) {
+    const reader = document.getElementById("catalogue-reader");
+    reader.dataset.ready = "false";
+    reader.dataset.loading = "true";
+
+    const loader = document.getElementById("loading");
+    if (loader) {
+      loader.hidden = false;
+      loader.style.removeProperty("display");
+      loader.style.removeProperty("opacity");
+      loader.style.removeProperty("visibility");
+    }
+  }
+
+
+  function hideLoading() {
+    const reader = document.getElementById("catalogue-reader");
+    reader.dataset.ready = "true";
+    reader.dataset.loading = "false";
+
+    const loader = document.getElementById("loading");
+    if (loader) {
+      loader.hidden = true;
+      loader.style.setProperty("display", "none", "important");
+    }
+  }
+
+
+  function showError(message) {
+
+    status.textContent =
+      message;
+
+    status.style.display =
+      "block";
+
+    hideLoading();
+
+  }
+
+
+  function hideError() {
+
+    status.style.display =
+      "none";
+
+  }
+
+
+  /* ========================================================
+     LANGUE DU SITE
+     ======================================================== */
+
+  function detectLanguage() {
+
+    /*
+      1 — ?lang=fr (permet de forcer une langue précise via l'URL,
+      utile pour des liens partagés ou des tests).
+    */
+
+    try {
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const queryLang =
+        (
+          params.get("lang") ||
+          ""
+        )
+        .toLowerCase()
+        .split("-")[0];
+
+
+      if (
+        catalogues[queryLang]
+      ) {
+
+        return queryLang;
+
+      }
+
+    } catch (error) {}
+
+
+    /*
+      2 — Dernière langue explicitement choisie par l'utilisateur dans
+      la liseuse (clic sur un drapeau). On ne se base plus sur la langue
+      du navigateur ou du document : le catalogue doit toujours démarrer
+      en français tant que l'utilisateur n'a pas choisi une autre langue
+      lui-même, sur PC comme sur mobile.
+    */
+
+    try {
+      const savedLang = (localStorage.getItem('mondoprod-catalogue-lang') || '')
+        .toLowerCase()
+        .split('-')[0];
+      if (catalogues[savedLang]) return savedLang;
+    } catch (error) {}
+
+
+    /*
+      3 — Par défaut, toujours le français.
+    */
+
+    return DEFAULT_LANGUAGE;
+
+  }
+
+
+  /* ========================================================
+     RENDRE UNE PAGE PDF DIRECTEMENT DANS UN CANVAS HD
+     ======================================================== */
+
+  function isMobileView() {
+    return window.matchMedia("(max-width: 700px)").matches;
+  }
+
+  function getRenderTargetWidth() {
+
+    const bookWidth = bookElement.clientWidth || 1120;
+    const cssPageWidth = isMobileView() ? bookWidth : bookWidth / 2;
+    const multiplier = Math.min(4.0, Math.max(2.8, window.devicePixelRatio * 1.8 + 1.4));
+
+    return Math.min(
+      3600,
+      Math.max(1800, Math.ceil(cssPageWidth * multiplier))
+    );
+  }
+
+  function sleepFrame() {
+    return new Promise(function(resolve) {
+      requestAnimationFrame(function() {
+        requestAnimationFrame(resolve);
+      });
+    });
+  }
+
+  function cancelCurrentRenders() {
+    renderingPages.forEach(function(entry) {
+      try {
+        if (entry && entry.task && typeof entry.task.cancel === 'function') {
+          entry.task.cancel();
+        }
+      } catch (error) {}
+    });
+    renderingPages.clear();
+  }
+
+  function revokePageUrl(index) {
+    const url = pageImageUrls.get(index);
+    if (url) {
+      try { URL.revokeObjectURL(url); } catch (error) {}
+      pageImageUrls.delete(index);
+    }
+  }
+
+  function revokeAllPageUrls() {
+    pageImageUrls.forEach(function(url) {
+      try { URL.revokeObjectURL(url); } catch (error) {}
+    });
+    pageImageUrls.clear();
+  }
+
+  function resetRenderState() {
+    renderGeneration++;
+    cancelCurrentRenders();
+    renderedPages.clear();
+    revokeAllPageUrls();
+    readyPromise = Promise.resolve();
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise(function(resolve, reject) {
+      canvas.toBlob(function(blob) {
+        if (blob) resolve(blob);
+        else reject(new Error('Impossible de créer l’image PNG de la page.'));
+      }, 'image/png');
+    });
+  }
+
+  async function renderPage(index, generation) {
+
+    if (!pdf || generation !== renderGeneration || index < 0 || index >= pdf.numPages) return false;
+    if (renderedPages.has(index)) return true;
+
+    const existing = renderingPages.get(index);
+    if (existing && existing.generation === generation) return existing.promise;
+
+    /* En mode mobile, l'élément cible est le slide du carrousel ;
+       en mode PC, c'est toujours la page PageFlip (inchangé). */
+    const pageElement = mobileMode
+      ? document.querySelector('#mobile-carousel .carousel-slide[data-page-index="' + index + '"]')
+      : document.querySelector('#book .pdf-page[data-page-index="' + index + '"]');
+    if (!pageElement) return false;
+
+    const image = pageElement.querySelector('img');
+    if (!image) return false;
+
+    const pdfAtStart = pdf;
+    const entry = { generation: generation, task: null, promise: null };
+
+    entry.promise = (async function() {
+      const page = await pdfAtStart.getPage(index + 1);
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
+
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetWidth = getRenderTargetWidth();
+      const scale = targetWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale: scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) return false;
+
+      context.fillStyle = '#fff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const renderTask = page.render({
+        canvasContext: context,
+        viewport: viewport,
+        intent: 'display',
+        renderInteractiveForms: true
+      });
+
+      entry.task = renderTask;
+      await renderTask.promise;
+
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
+
+      const blob = await canvasToPngBlob(canvas);
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
+
+      revokePageUrl(index);
+      const objectUrl = URL.createObjectURL(blob);
+      pageImageUrls.set(index, objectUrl);
+
+      image.onload = null;
+      image.src = objectUrl;
+      image.alt = 'Page ' + (index + 1);
+      image.style.visibility = 'visible';
+
+      renderedPages.add(index);
+
+      /*
+        Le PDF.js vient réellement de terminer le rendu de la couverture :
+        c'est ici, et uniquement ici, que la Terre doit disparaître.
+      */
+      if (index === 0) {
+        /*
+          La page 0 de CE PDF est réellement rendue : c'est le seul moment où
+          on autorise la disparition de la Terre.
+        */
+        if (pdf === pdfAtStart && generation === renderGeneration) {
+          hideLoading();
+        }
+      }
+
+      return true;
+    })().catch(function(error) {
+      if (generation !== renderGeneration || (error && error.name === 'RenderingCancelledException')) {
+        return false;
+      }
+      console.error('Erreur rendu page ' + (index + 1) + ':', error);
+      return false;
+    });
+
+    renderingPages.set(index, entry);
+
+    try {
+      return await entry.promise;
+    } finally {
+      const current = renderingPages.get(index);
+      if (current === entry) renderingPages.delete(index);
+    }
+  }
+
+  async function renderPages(indices, generation) {
+    const unique = Array.from(new Set(indices))
+      .filter(function(index) { return pdf && index >= 0 && index < pdf.numPages; });
+
+    if (generation !== renderGeneration) return false;
+
+    /*
+       Toutes les pages restent préparées depuis le début, mais par petits lots.
+       Cela évite de saturer le navigateur avec des dizaines de rendus PDF.js
+       simultanés et laisse les clics utilisateur être traités normalement.
+    */
+    const batchSize = 3;
+
+    for (let i = 0; i < unique.length; i += batchSize) {
+      if (generation !== renderGeneration) return false;
+
+      const batch = unique.slice(i, i + batchSize);
+
+      await Promise.all(batch.map(function(index) {
+        return renderPage(index, generation);
+      }));
+
+      if (i + batchSize < unique.length) {
+        await sleepFrame();
+      }
+    }
+
+    return generation === renderGeneration;
+  }
+
+  function preloadAround(index) {
+
+    if (!pdf) return;
+    const generation = renderGeneration;
+    const total = pdf.numPages;
+    const radius = 7;
+    const indices = [];
+
+    /* Priorité aux pages immédiatement visibles à la prochaine animation. */
+    const priority = [
+      index,
+      index + 1,
+      index + 2,
+      index + 3,
+      index - 1,
+      index - 2,
+      index + 4,
+      index + 5,
+      index - 3,
+      index - 4,
+      index + 6,
+      index + 7,
+      index - 5,
+      index - 6,
+      index - 7
+    ];
+
+    priority.forEach(function(i) {
+      if (i >= 0 && i < total && !indices.includes(i)) indices.push(i);
+    });
+
+    if (index <= 3) {
+      [0,1,2,3,4,5,6,7].forEach(function(i) {
+        if (i < total && !indices.includes(i)) indices.push(i);
+      });
+    }
+
+    if (index >= total - 4) {
+      [total-8,total-7,total-6,total-5,total-4,total-3,total-2,total-1].forEach(function(i) {
+        if (i >= 0 && i < total && !indices.includes(i)) indices.push(i);
+      });
+    }
+
+    readyPromise = readyPromise.then(function() {
+      if (generation !== renderGeneration) return;
+      return renderPages(indices, generation);
+    }).catch(function(error) {
+      console.warn('Préchargement :', error);
+    });
+
+    return readyPromise;
+  }
+
+  async function ensurePagesReady(indices) {
+    if (!pdf) return false;
+
+    const generation = renderGeneration;
+    const wanted = Array.from(new Set(indices)).filter(function(index) {
+      return index >= 0 && index < pdf.numPages;
+    });
+
+    if (!wanted.length) return true;
+
+    /*
+      Une navigation utilisateur ne doit jamais attendre la file de
+      préchargement générale. Elle prépare directement les pages dont elle
+      a besoin et peut donc fonctionner dès le premier chargement.
+    */
+    if (generation !== renderGeneration) return false;
+
+    return renderPages(wanted, generation);
+  }
+
+  /* ========================================================
+     CRÉER LA LISEUSE EN MODE HTML (PC — PageFlip, INCHANGÉ)
+     ======================================================== */
+
+  function createBook() {
+
+    bookElement.innerHTML = '';
+    resetRenderState();
+
+    const pageElements = [];
+
+    for (
+      let index = 0;
+      index < pdf.numPages;
+      index++
+    ) {
+
+      const page =
+        document.createElement('div');
+
+      page.className = 'pdf-page';
+      page.dataset.pageIndex = String(index);
+      page.setAttribute('data-density', 'soft');
+
+      if (index === 0 || index === pdf.numPages - 1) {
+        page.setAttribute('data-density', 'hard');
+      }
+
+      const image =
+        document.createElement('img');
+
+      image.setAttribute('aria-hidden', 'true');
+      image.alt = 'Page ' + (index + 1);
+      image.style.visibility = 'hidden';
+      image.decoding = 'async';
+      image.draggable = false;
+
+      page.appendChild(image);
+      bookElement.appendChild(page);
+      pageElements.push(page);
+
+    }
+
+    pageFlip =
+      new St.PageFlip(
+        bookElement,
+        {
+          width: 760,
+          height: 1075,
+          size: 'stretch',
+          minWidth: 250,
+          maxWidth: 1800,
+          minHeight: 350,
+          maxHeight: 2550,
+          flippingTime: 950,
+          showCover: true,
+          drawShadow: true,
+          maxShadowOpacity: .78,
+          showPageCorners: true,
+          useMouseEvents: true,
+          swipeDistance: 25,
+          clickEventForward: true,
+          disableFlipByClick: true,
+          mobileScrollSupport: true,
+          usePortrait: isMobileView(),
+          startPage: 0,
+          startZIndex: 20,
+          autoSize: false
+        }
+      );
+
+    pageFlip.loadFromHTML(pageElements);
+    pageFlip.turnToPage(0);
+
+    requestAnimationFrame(function () {
+      applyReaderScale();
+      updateCounter();
+    });
+
+  }
+
+  /* ========================================================
+     CARROUSEL MOBILE — apparition en fondu, image par image,
+     centrée. Totalement séparé de PageFlip : n'est utilisé
+     que lorsque mobileMode === true.
+     ======================================================== */
+
+  function createMobileCarousel() {
+
+    mobileCarousel.innerHTML = '';
+    resetRenderState();
+    carouselSlides = [];
+    carouselIndex = 0;
+
+    for (
+      let index = 0;
+      index < pdf.numPages;
+      index++
+    ) {
+
+      const slide =
+        document.createElement('div');
+
+      slide.className = 'carousel-slide';
+      slide.dataset.pageIndex = String(index);
+
+      const image =
+        document.createElement('img');
+
+      image.setAttribute('aria-hidden', 'true');
+      image.alt = 'Page ' + (index + 1);
+      image.style.visibility = 'hidden';
+      image.decoding = 'async';
+      image.draggable = false;
+
+      slide.appendChild(image);
+      mobileCarousel.appendChild(slide);
+      carouselSlides.push(slide);
+
+    }
+
+    goToCarouselSlide(0, { skipRender: false });
+    updateCounter();
+
+  }
+
+  function goToCarouselSlide(index, options) {
+
+    if (!pdf) return;
+
+    const total = pdf.numPages;
+    const clamped = Math.max(0, Math.min(total - 1, index));
+
+    carouselSlides.forEach(function (slide, slideIndex) {
+      slide.classList.toggle('is-active', slideIndex === clamped);
+    });
+
+    carouselIndex = clamped;
+
+    if (!options || !options.skipRender) {
+      ensurePagesReady([clamped]);
+      preloadAround(clamped);
+    }
+
+    updateCounter();
+
+  }
+
+  function carouselNext() {
+    if (!pdf) return;
+    goToCarouselSlide(carouselIndex + 1);
+  }
+
+  function carouselPrev() {
+    if (!pdf) return;
+    goToCarouselSlide(carouselIndex - 1);
+  }
+
+  function carouselFirst() {
+    goToCarouselSlide(0);
+  }
+
+  function carouselLast() {
+    if (!pdf) return;
+    goToCarouselSlide(pdf.numPages - 1);
+  }
+
+  /* Swipe tactile simple sur le carrousel : glisser change de page. */
+  (function attachCarouselSwipe() {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    mobileCarousel.addEventListener('pointerdown', function (event) {
+      if (!mobileMode) return;
+      tracking = true;
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+
+    mobileCarousel.addEventListener('pointerup', function (event) {
+      if (!mobileMode || !tracking) return;
+      tracking = false;
+
+      const deltaX = event.clientX - startX;
+      const deltaY = event.clientY - startY;
+
+      if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+
+      if (deltaX < 0) {
+        carouselNext();
+      } else {
+        carouselPrev();
+      }
+    });
+
+    mobileCarousel.addEventListener('pointercancel', function () {
+      tracking = false;
+    });
+  })();
+
+  /* ========================================================
+     COMPTEUR (partagé PC / mobile)
+     ======================================================== */
+
+  function updateCounter() {
+
+    if (!pdf) return;
+
+    const total = pdf.numPages;
+
+    if (mobileMode) {
+
+      const index = carouselIndex;
+
+      pageNumber.textContent =
+        (index + 1) + " / " + total;
+
+      const atStart = index <= 0;
+      const atEnd = index >= total - 1;
+
+      firstButton.disabled = atStart;
+      prevButton.disabled = atStart;
+      nextButton.disabled = atEnd;
+      lastButton.disabled = atEnd;
+
+      if (mobileFirstButton) mobileFirstButton.disabled = atStart;
+      if (mobilePrevButton) mobilePrevButton.disabled = atStart;
+      if (mobileNextButton) mobileNextButton.disabled = atEnd;
+      if (mobileLastButton) mobileLastButton.disabled = atEnd;
+
+      return;
+
+    }
+
+    if (!pageFlip) return;
+
+
+    const index =
+      pageFlip.getCurrentPageIndex();
+
+
+    /*
+      Première couverture.
+    */
+
+    if (
+      index === 0
+    ) {
+
+      pageNumber.textContent =
+        "1 / " +
+        total;
+
+    }
+
+    /*
+      Dernière couverture.
+    */
+
+    else if (
+      index === total - 1
+    ) {
+
+      pageNumber.textContent =
+        total +
+        " / " +
+        total;
+
+    }
+
+    /*
+      Pages intérieures.
+    */
+
+    else {
+
+      const first =
+        index + 1;
+
+
+      const second =
+        Math.min(
+          index + 2,
+          total
+        );
+
+
+      /*
+        En double page on affiche
+        "2–3 / 44", "4–5 / 44", etc.
+      */
+
+      pageNumber.textContent =
+        first +
+        "–" +
+        second +
+        " / " +
+        total;
+
+    }
+
+
+    firstButton.disabled =
+      index <= 0;
+
+    prevButton.disabled =
+      index <= 0;
+
+    nextButton.disabled =
+      index >= total - 1;
+
+    lastButton.disabled =
+      index >= total - 1;
+
+  }
+
+
+  /* ========================================================
+     ÉVÉNEMENTS PAGEFLIP
+     ======================================================== */
+
+  /* Navigation robustesse : une commande demandée pendant une
+     animation est mémorisée et exécutée dès que PageFlip redevient
+     disponible. La dernière commande gagne, ce qui évite tout blocage. */
+  let pendingNavigation = null;
+
+  function pageFlipIsFlipping() {
+    if (!pageFlip || typeof pageFlip.getState !== "function") return false;
+    try {
+      return String(pageFlip.getState()) === "flipping";
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function runOrQueueNavigation(command) {
+    if (!pageFlip) return;
+
+    if (pageFlipIsFlipping()) {
+      pendingNavigation = command;
+      return;
+    }
+
+    pendingNavigation = null;
+    try {
+      command();
+    } catch (error) {
+      console.warn("Navigation PageFlip :", error);
+    }
+  }
+
+  function flushPendingNavigation() {
+    if (!pageFlip || !pendingNavigation || pageFlipIsFlipping()) return;
+
+    const command = pendingNavigation;
+    pendingNavigation = null;
+
+    requestAnimationFrame(function () {
+      if (!pageFlip) return;
+      try {
+        command();
+      } catch (error) {
+        console.warn("Navigation PageFlip :", error);
+      }
+    });
+  }
+
+  function hidePagesUnderCover() {
+
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
+
+    if (!pageFlip || !pdf) return;
+
+    const index = pageFlip.getCurrentPageIndex();
+    const total = pdf.numPages;
+
+    if (index <= 1) {
+      bookElement.classList.add('cover-front-flip-hiding');
+    } else if (index >= total - 2) {
+      bookElement.classList.add('cover-back-flip-hiding');
+    }
+  }
+
+  function showPagesUnderCover() {
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
+  }
+
+  function attachPageFlipEvents() {
+
+    if (!pageFlip) return;
+
+    pageFlip.on('flip', function() {
+      showPagesUnderCover();
+      updateCounter();
+      preloadAround(pageFlip.getCurrentPageIndex());
+    });
+
+    pageFlip.on('changeState', function(event) {
+      const state = event && event.data ? String(event.data) : '';
+      const index = pageFlip.getCurrentPageIndex();
+      const total = pdf ? pdf.numPages : 0;
+
+      const nearFrontCover = index <= 1;
+      const nearBackCover = total > 0 && index >= total - 2;
+
+      if (state === 'flipping' && (nearFrontCover || nearBackCover)) {
+        hidePagesUnderCover();
+      }
+
+      if (state === 'read') {
+        showPagesUnderCover();
+        updateCounter();
+        preloadAround(index);
+        flushPendingNavigation();
+        return;
+      }
+
+      updateCounter();
+    });
+
+    pageFlip.on('changeOrientation', function() {
+      updateCounter();
+      preloadAround(pageFlip.getCurrentPageIndex());
+    });
+  }
+
+  /* ========================================================
+     CHARGER UN CATALOGUE
+     ======================================================== */
+
+  function getCatalogueBuffer(language) {
+
+    const url = catalogues[language];
+    if (!url) {
+      return Promise.reject(new Error('Langue de catalogue inconnue.'));
+    }
+
+    if (!catalogueBufferPromises.has(language)) {
+      const promise = fetch(url, {
+        method: 'GET',
+        cache: 'force-cache',
+        credentials: 'omit'
+      })
+      .then(function(response) {
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status + ' — ' + url);
+        }
+        return response.arrayBuffer();
+      })
+      .catch(function(error) {
+        catalogueBufferPromises.delete(language);
+        throw error;
+      });
+
+      catalogueBufferPromises.set(language, promise);
+    }
+
+    return catalogueBufferPromises.get(language);
+  }
+
+  function prefetchOtherCatalogues(currentLanguage) {
+    Object.keys(catalogues).forEach(function(language) {
+      if (language !== currentLanguage) {
+        /* On précharge uniquement les données binaires.
+           Le document PDF.js sera créé frais à chaque affichage.
+           Cela évite de réutiliser un PDFDocumentProxy qui peut avoir
+           conservé un état interne après un changement de langue. */
+        getCatalogueBuffer(language).catch(function() {});
+      }
+    });
+  }
+
+  function getCatalogueDocument(language) {
+
+    if (!catalogues[language]) {
+      return Promise.reject(new Error('Langue de catalogue inconnue.'));
+    }
+
+    /*
+       IMPORTANT :
+       Le buffer du PDF est mis en cache, mais PAS le PDFDocumentProxy PDF.js.
+       À chaque changement de langue, on crée donc un nouveau document PDF.js.
+       Ainsi FR → EN → FR fonctionne toujours, même après destruction du
+       PageFlip précédent.
+    */
+    return getCatalogueBuffer(language)
+      .then(function(buffer) {
+        const data = buffer.slice(0);
+
+        return pdfjsLib.getDocument({
+          data: data,
+          disableAutoFetch: false,
+          disableStream: false,
+          disableRange: false,
+          cMapPacked: true
+        }).promise;
+      });
+  }
+
+  async function loadCatalogue(language) {
+
+    if (!catalogues[language]) language = DEFAULT_LANGUAGE;
+
+    const requestId = ++loadRequestId;
+    activeLoadRequestId = requestId;
+    requestedLanguage = language;
+    loadingCatalogue = true;
+    pendingNavigation = null;
+
+    /* Chaque changement de langue redémarre explicitement l'indicateur. */
+    showLoading('Chargement du catalogue ' + language.toUpperCase() + '…');
+
+    setActiveLanguage(language);
+    hideError();
+
+    try {
+
+      /*
+        IMPORTANT : on ne détruit PAS le catalogue actuellement visible
+        tant que le nouveau PDF n'est pas téléchargé et que ses premières
+        pages ne sont pas prêtes. Le bouton de langue reste donc fiable,
+        même si l'utilisateur clique plusieurs fois.
+      */
+      const loadedPdf = await getCatalogueDocument(language);
+
+      if (!loadedPdf || requestId !== activeLoadRequestId) return;
+
+      /* Détecte le mode d'affichage une seule fois, au moment du chargement.
+         Le mode PC (PageFlip) n'est jamais impacté par cette détection. */
+      mobileMode = isMobileView();
+      document.body.classList.toggle('is-mobile-reader', mobileMode);
+
+      /* Créer le nouveau livre / carrousel uniquement après le chargement du PDF. */
+      const previousPageFlip = pageFlip;
+      const previousPdf = pdf;
+
+      pdf = loadedPdf;
+      resetRenderState();
+      const generation = renderGeneration;
+
+      if (mobileMode) {
+
+        bookElement.innerHTML = '';
+        pageFlip = null;
+        createMobileCarousel();
+
+      } else {
+
+        mobileCarousel.innerHTML = '';
+        bookElement.innerHTML = '';
+        pageFlip = null;
+
+        createBook();
+        attachPageFlipEvents();
+        pageFlip.update();
+        pageFlip.turnToPage(0);
+
+      }
+
+      /*
+        Deux frames permettent à PageFlip de construire sa géométrie avant
+        que PDF.js ne fixe la taille exacte des canvas.
+      */
+      await sleepFrame();
+
+      /*
+        Préparation complète du catalogue :
+        toutes les pages du PDF courant sont lancées en rendu dès le début,
+        comme demandé. On n'attend toutefois que la couverture pour afficher
+        le catalogue : les autres pages continuent de se préparer en parallèle.
+      */
+      const allPageIndices = Array.from(
+        { length: pdf.numPages },
+        function (_, index) { return index; }
+      );
+
+      renderPages(allPageIndices, generation).catch(function (error) {
+        console.warn('Préparation complète du catalogue :', error);
+      });
+
+      await ensurePagesReady([0]);
+
+      if (requestId !== activeLoadRequestId || generation !== renderGeneration) {
+        return;
+      }
+
+      activeLanguage = language;
+      try { localStorage.setItem('mondoprod-catalogue-lang', language); } catch (error) {}
+      document.documentElement.dataset.catalogueReady = 'true';
+      document.documentElement.dataset.catalogueLanguage = activeLanguage;
+
+      hideLoading();
+
+      if (!mobileMode) {
+        applyReaderScale();
+        positionCornerLayer();
+      }
+
+      updateCounter();
+      preloadAround(0);
+
+      /* Prépare silencieusement les 3 autres catalogues pendant que
+         l'utilisateur consulte celui qui vient d'être ouvert. */
+      prefetchOtherCatalogues(language);
+
+      /* L'ancien livre est détruit seulement maintenant que le nouveau est prêt. */
+      if (previousPageFlip && previousPageFlip !== pageFlip) {
+        try { previousPageFlip.destroy(); } catch (error) {}
+      }
+      /* Les données binaires des catalogues restent en cache.
+         Le document PDF.js affiché est recréé à chaque changement de langue,
+         ce qui garantit que l'on peut toujours revenir au Français ou à toute
+         autre langue après un changement. */
+
+    } catch (error) {
+
+      if (requestId !== activeLoadRequestId) return;
+
+      console.error('Erreur catalogue ' + language + ' :', error);
+      setActiveLanguage(activeLanguage);
+      showError(
+        'Impossible de charger le catalogue : ' +
+        (error && error.message ? error.message : 'erreur inconnue')
+      );
+
+    } finally {
+
+      if (requestId === activeLoadRequestId) {
+        loadingCatalogue = false;
+      }
+
+    }
+  }
+
+  /* ========================================================
+     DRAPEAUX
+     ======================================================== */
+
+  languageButtons.forEach(
+    function (button) {
+
+      button.addEventListener(
+        "click",
+        function (event) {
+
+          event.preventDefault();
+          event.stopPropagation();
+
+          const requestedLanguage = button.dataset.lang;
+
+          if (!catalogues[requestedLanguage]) {
+            return;
+          }
+
+          /* Un clic sur un bouton de langue doit toujours déclencher
+             le chargement du catalogue demandé, y compris FR après EN/IT/ES. */
+          loadCatalogue(requestedLanguage);
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ========================================================
+     COINS INTERACTIFS (PC uniquement — inchangé)
+     ======================================================== */
+
+  function positionCornerLayer() {
+    if (!cornerLayer || !bookElement) return;
+    if (mobileMode) return;
+
+    const areaRect = document.getElementById('book-area').getBoundingClientRect();
+    const bookRect = bookElement.getBoundingClientRect();
+
+    cornerLayer.style.left = (bookRect.left - areaRect.left) + 'px';
+    cornerLayer.style.top = (bookRect.top - areaRect.top) + 'px';
+    cornerLayer.style.width = bookRect.width + 'px';
+    cornerLayer.style.height = bookRect.height + 'px';
+  }
+
+  function bookPointFromPointer(event) {
+    const rect = bookElement.getBoundingClientRect();
+
+    // Le livre est agrandi par CSS (zoom par défaut 0.94).
+    // PageFlip attend des coordonnées dans sa taille NON transformée.
+    // On reconvertit donc les coordonnées écran vers les coordonnées
+    // internes de PageFlip afin que le geste de coin reste parfaitement
+    // stable même avec le zoom et selon le navigateur.
+    const baseWidth = bookElement.clientWidth || (rect.width / Math.max(readerScale, 0.01));
+    const baseHeight = bookElement.clientHeight || (rect.height / Math.max(readerScale, 0.01));
+    const scaleX = rect.width / baseWidth || 1;
+    const scaleY = rect.height / baseHeight || 1;
+
+    const x = Math.max(0, Math.min(baseWidth, (event.clientX - rect.left) / scaleX));
+    const y = Math.max(0, Math.min(baseHeight, (event.clientY - rect.top) / scaleY));
+    return { x: x, y: y };
+  }
+
+  function bindCornerZone(zone) {
+    if (!zone) return;
+
+    let activePointerId = null;
+
+    zone.addEventListener('pointerdown', function(event) {
+      if (mobileMode) return;
+      if (!pageFlip || !pdf || pageFlipIsFlipping()) return;
+      if (event.button !== undefined && event.button !== 0) return;
+
+      activePointerId = event.pointerId;
+      try { zone.setPointerCapture(activePointerId); } catch (error) {}
+
+      const point = bookPointFromPointer(event);
+      try {
+        pageFlip.startUserTouch(point);
+      } catch (error) {}
+    });
+
+    zone.addEventListener('pointermove', function(event) {
+      if (mobileMode) return;
+      if (activePointerId === null || event.pointerId !== activePointerId) return;
+      if (!pageFlip) return;
+
+      const point = bookPointFromPointer(event);
+      try {
+        pageFlip.userMove(point, true);
+      } catch (error) {}
+    });
+
+    function endTouch(event) {
+      if (mobileMode) return;
+      if (activePointerId === null || event.pointerId !== activePointerId) return;
+      activePointerId = null;
+
+      try { zone.releasePointerCapture(event.pointerId); } catch (error) {}
+
+      if (!pageFlip) return;
+      const point = bookPointFromPointer(event);
+      try {
+        pageFlip.userStop(point);
+      } catch (error) {}
+    }
+
+    zone.addEventListener('pointerup', endTouch);
+    zone.addEventListener('pointercancel', endTouch);
+  }
+
+  [cornerTL, cornerBL, cornerTR, cornerBR].forEach(bindCornerZone);
+
+
+  /* ========================================================
+     CONTRÔLES DE NAVIGATION — PC (flèches latérales, inchangé)
+     ======================================================== */
+
+  firstButton.addEventListener('click', function () {
+    if (mobileMode) {
+      carouselFirst();
+      return;
+    }
+    runOrQueueNavigation(function () { pageFlip.turnToPage(0); });
+  });
+
+  prevButton.addEventListener('click', function () {
+    if (mobileMode) {
+      carouselPrev();
+      return;
+    }
+    runOrQueueNavigation(function () { pageFlip.flipPrev(); });
+  });
+
+  nextButton.addEventListener('click', function () {
+    if (mobileMode) {
+      carouselNext();
+      return;
+    }
+    runOrQueueNavigation(function () { pageFlip.flipNext(); });
+  });
+
+  lastButton.addEventListener('click', function () {
+    if (mobileMode) {
+      carouselLast();
+      return;
+    }
+    runOrQueueNavigation(function () {
+      if (pdf) pageFlip.turnToPage(pdf.numPages - 1);
+    });
+  });
+
+
+  /* ========================================================
+     CONTRÔLES DE NAVIGATION — MOBILE (rangée sous le catalogue)
+     Ces boutons ne pilotent que le carrousel : ils sont masqués
+     hors du mode mobile et n'interfèrent jamais avec PageFlip.
+     ======================================================== */
+
+  if (mobileFirstButton) {
+    mobileFirstButton.addEventListener('click', function () {
+      carouselFirst();
+    });
+  }
+
+  if (mobilePrevButton) {
+    mobilePrevButton.addEventListener('click', function () {
+      carouselPrev();
+    });
+  }
+
+  if (mobileNextButton) {
+    mobileNextButton.addEventListener('click', function () {
+      carouselNext();
+    });
+  }
+
+  if (mobileLastButton) {
+    mobileLastButton.addEventListener('click', function () {
+      carouselLast();
+    });
+  }
+
+
+  /* ========================================================
+     ZOOM (PC uniquement — inchangé)
+     ======================================================== */
+
+  let readerScale = 1;
+
+  function applyReaderScale(delta) {
+    if (mobileMode) return;
+
+    if (typeof delta === 'number') {
+      readerScale = Math.max(0.6, Math.min(1.4, readerScale + delta));
+    }
+
+    bookElement.style.transform = 'scale(' + readerScale + ')';
+    positionCornerLayer();
+  }
+
+  zoomInButton.addEventListener('click', function () {
+    applyReaderScale(0.08);
+  });
+
+  zoomOutButton.addEventListener('click', function () {
+    applyReaderScale(-0.08);
+  });
+
+
+  /* ========================================================
+     REDIMENSIONNEMENT
+     On ne re-choisit le mode (PC vs mobile) qu'entre deux
+     chargements de catalogue : si l'utilisateur redimensionne
+     sa fenêtre en cours de lecture, on recharge proprement la
+     langue active dans le mode qui correspond désormais à la
+     largeur d'écran. Le mode PC lui-même n'est jamais modifié.
+     ======================================================== */
+
+  let resizeTimer = null;
+
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      if (!pdf || loadingCatalogue) return;
+
+      const shouldBeMobile = isMobileView();
+      if (shouldBeMobile !== mobileMode) {
+        loadCatalogue(activeLanguage);
+        return;
+      }
+
+      if (!mobileMode) {
+        positionCornerLayer();
+      }
+    }, 200);
+  });
+
+
+  /* ========================================================
+     DÉMARRAGE
+     Le catalogue s'ouvre toujours en français par défaut,
+     sur PC comme sur mobile, sauf choix explicite antérieur
+     de l'utilisateur (drapeau cliqué) ou paramètre ?lang= dans l'URL.
+     ======================================================== */
+
+  const startLanguage = detectLanguage();
+  setActiveLanguage(startLanguage);
+  loadCatalogue(startLanguage);
+
+})();
+
+</script>
+
+</body>
+</html>
