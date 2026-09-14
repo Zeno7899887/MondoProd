@@ -1458,7 +1458,7 @@
   function bookPointFromPointer(event) {
     const rect = bookElement.getBoundingClientRect();
 
-    // Le livre est agrandi par CSS (zoom par défaut 1.14).
+    // Le livre est agrandi par CSS (zoom par défaut 1.02).
     // PageFlip attend des coordonnées dans sa taille NON transformée.
     // On reconvertit donc les coordonnées écran vers les coordonnées
     // internes de PageFlip afin que le geste de coin reste parfaitement
@@ -1599,7 +1599,7 @@
      ZOOM
      ======================================================== */
 
-  let readerScale = 1.14;
+  let readerScale = 1.02;
 
   function applyReaderScale() {
     bookElement.style.transform =
@@ -1615,7 +1615,7 @@
 
       readerScale =
         Math.min(
-          1.14,
+          1.02,
           readerScale + .04
         );
 
