@@ -53,6 +53,8 @@
     transform:translateY(0);
     transition:background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
     pointer-events:auto;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
   .lang-btn::after {
     content:attr(aria-label);
@@ -1205,42 +1207,36 @@
     });
   }
 
-  async function getPdfArrayBuffer(language) {
-    if (pdfDataCache.has(language)) return pdfDataCache.get(language);
-    if (pdfPrefetchPromises.has(language)) return pdfPrefetchPromises.get(language);
-
-    const url = catalogues[language];
-    if (!url) throw new Error('Langue de catalogue inconnue.');
-
-    const promise = fetch(url, {
-      method: 'GET',
-      cache: 'force-cache',
-      credentials: 'omit'
-    }).then(function(response) {
-      if (!response.ok) throw new Error('HTTP ' + response.status + ' — ' + url);
-      return response.arrayBuffer();
-    }).then(function(data) {
-      pdfDataCache.set(language, data);
-      return data;
-    }).finally(function() {
-      pdfPrefetchPromises.delete(language);
-    });
-
-    pdfPrefetchPromises.set(language, promise);
-    return promise;
-  }
+  /* ========================================================
+     CACHE DES PDF PAR LANGUE — SIMPLE ET RAPIDE
+     ======================================================== */
 
   async function getCachedPdfDocument(language) {
-    if (pdfDocumentCache.has(language)) return pdfDocumentCache.get(language);
 
-    const data = await getPdfArrayBuffer(language);
-    const promise = pdfjsLib.getDocument({
-      data: data,
+    if (pdfDocumentCache.has(language)) {
+      return pdfDocumentCache.get(language);
+    }
+
+    const url = catalogues[language];
+    if (!url) {
+      throw new Error('Langue de catalogue inconnue.');
+    }
+
+    /*
+       On laisse PDF.js charger directement l'URL du PDF.
+       Cela permet à PDF.js d'utiliser son chargement progressif/range,
+       au lieu de télécharger systématiquement tout le fichier avant de
+       pouvoir commencer à l'afficher.
+    */
+    const loadingTask = pdfjsLib.getDocument({
+      url: url,
       disableAutoFetch: false,
       disableStream: false,
       disableRange: false,
       cMapPacked: true
-    }).promise.catch(function(error) {
+    });
+
+    const promise = loadingTask.promise.catch(function(error) {
       pdfDocumentCache.delete(language);
       throw error;
     });
@@ -1249,75 +1245,103 @@
     return promise;
   }
 
-  function warmOtherLanguages(currentLanguage) {
-    Object.keys(catalogues).forEach(function(language) {
-      if (language === currentLanguage) return;
 
-      /* On commence immédiatement le téléchargement du PDF. */
-      getCachedPdfDocument(language).then(function(otherPdf) {
+  async function warmOtherLanguages(currentLanguage) {
+
+    /*
+       Précharge les trois autres PDF immédiatement en arrière-plan.
+       On ne rend d'abord que leurs couvertures + premières pages :
+       le changement de langue peut ainsi devenir quasi instantané après
+       le premier chargement.
+    */
+    const languages = Object.keys(catalogues).filter(function(language) {
+      return language !== currentLanguage;
+    });
+
+    await Promise.all(languages.map(async function(language) {
+
+      try {
+
+        const otherPdf = await getCachedPdfDocument(language);
         if (!otherPdf) return;
 
-        /* Prépare les deux premières pages en arrière-plan : après cela,
-           le changement de langue peut basculer presque immédiatement
-           sur une couverture déjà disponible. */
         const cache = getLanguageImageCache(language);
-        const indices = [0, 1].filter(function(i){ return i < otherPdf.numPages && !cache.has(i); });
-        if (!indices.length) return;
-
-        let chain = Promise.resolve();
-        indices.forEach(function(i) {
-          chain = chain.then(function() {
-            if (cache.has(i)) return;
-            return renderLanguageImage(otherPdf, language, i);
-          });
+        const wanted = [0, 1, 2, 3].filter(function(index) {
+          return index < otherPdf.numPages && !cache.has(index);
         });
-        return chain;
-      }).catch(function(){ /* Préchargement silencieux. */ });
-    });
+
+        if (!wanted.length) return;
+
+        /* Les rendus d'une langue en arrière-plan utilisent uniquement des
+           canvas temporaires différents : aucun conflit de canvas. */
+        for (const index of wanted) {
+          if (cache.has(index)) continue;
+          await renderLanguageImage(otherPdf, language, index);
+        }
+
+      } catch (error) {
+        console.warn('Préchargement langue ' + language + ' :', error);
+      }
+
+    }));
   }
 
+
   async function renderLanguageImage(otherPdf, language, index) {
+
     const cache = getLanguageImageCache(language);
     if (cache.has(index)) return cache.get(index);
 
     const pdfPage = await otherPdf.getPage(index + 1);
     const baseViewport = pdfPage.getViewport({ scale: 1 });
-    const targetWidth = Math.min(3000, Math.max(1900, Math.ceil((bookElement.clientWidth || 700) * (isMobileView() ? 3.2 : 2.0))));
-    const viewport = pdfPage.getViewport({ scale: targetWidth / baseViewport.width });
+
+    const targetWidth = Math.min(
+      3000,
+      Math.max(
+        1900,
+        Math.ceil(
+          (bookElement.clientWidth || 700) *
+          (isMobileView() ? 3.2 : 2.0)
+        )
+      )
+    );
+
+    const viewport = pdfPage.getViewport({
+      scale: targetWidth / baseViewport.width
+    });
+
     const canvas = document.createElement('canvas');
     canvas.width = Math.ceil(viewport.width);
     canvas.height = Math.ceil(viewport.height);
-    const context = canvas.getContext('2d', {alpha:false});
+
+    const context = canvas.getContext('2d', { alpha:false });
     if (!context) return null;
+
     context.fillStyle = '#fff';
-    context.fillRect(0,0,canvas.width,canvas.height);
-    await pdfPage.render({canvasContext:context, viewport:viewport, intent:'display'}).promise;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    await pdfPage.render({
+      canvasContext: context,
+      viewport: viewport,
+      intent: 'display'
+    }).promise;
+
     const blob = await canvasToPngBlob(canvas);
     const url = URL.createObjectURL(blob);
     cache.set(index, url);
+
     return url;
   }
+
 
   /* ========================================================
      CHARGER UN CATALOGUE
      ======================================================== */
 
-  async function getCatalogueDocument(language, requestId) {
-
-    const url = catalogues[language];
-    if (!url) throw new Error('Langue de catalogue inconnue.');
-
-    const loaded = await getCachedPdfDocument(language);
-
-    if (requestId !== activeLoadRequestId) return null;
-    return loaded;
-  }
-
   async function loadCatalogue(language) {
 
     if (!catalogues[language]) language = 'fr';
 
-    const previousActiveLanguage = activeLanguage;
     const requestId = ++loadRequestId;
     activeLoadRequestId = requestId;
     requestedLanguage = language;
@@ -1326,26 +1350,40 @@
 
     setActiveLanguage(language);
     hideError();
-    showLoading('Chargement du catalogue ' + language.toUpperCase() + '…');
+    showLoading('');
 
     try {
 
       /*
-        IMPORTANT : on ne détruit PAS le catalogue actuellement visible
-        tant que le nouveau PDF n'est pas téléchargé et que ses premières
-        pages ne sont pas prêtes. Le bouton de langue reste donc fiable,
-        même si l'utilisateur clique plusieurs fois.
+         1. On récupère le document demandé.
+         2. On prépare seulement les premières pages nécessaires.
+         3. Ensuite seulement on remplace le livre visible.
+
+         Ainsi un ancien chargement ne peut jamais écraser un nouveau clic.
       */
-      const loadedPdf = await getCatalogueDocument(language, requestId);
+      const loadedPdf = await getCachedPdfDocument(language);
 
       if (!loadedPdf || requestId !== activeLoadRequestId) return;
 
-      /* Créer le nouveau livre uniquement après le chargement du PDF. */
+      const targetCache = getLanguageImageCache(language);
+
+      /* Prépare la couverture et les trois pages qui suivent.
+         Si elles ont déjà été préchargées, cette étape est quasi instantanée. */
+      const firstPages = [0, 1, 2, 3].filter(function(index) {
+        return index < loadedPdf.numPages && !targetCache.has(index);
+      });
+
+      for (const index of firstPages) {
+        if (requestId !== activeLoadRequestId) return;
+        await renderLanguageImage(loadedPdf, language, index);
+      }
+
+      if (requestId !== activeLoadRequestId) return;
+
       const previousPageFlip = pageFlip;
-      const previousPdf = pdf;
 
       pdf = loadedPdf;
-      currentLanguageImages = getLanguageImageCache(language);
+      currentLanguageImages = targetCache;
       resetRenderState();
       const generation = renderGeneration;
 
@@ -1357,35 +1395,24 @@
       pageFlip.update();
       pageFlip.turnToPage(0);
 
-      /*
-        Deux frames permettent à PageFlip de construire sa géométrie avant
-        que PDF.js ne fixe la taille exacte des canvas.
-      */
-      await sleepFrame();
+      if (requestId !== activeLoadRequestId || generation !== renderGeneration) return;
 
-      /*
-        Préchargement silencieux : on prépare les 4 premières pages avant
-        d'autoriser la navigation. Aucun message de préparation ne reste donc
-        affiché au milieu du lecteur.
-      */
-      await ensurePagesReady([0, 1, 2, 3, 4, 5, 6, 7]);
-
-      if (requestId !== activeLoadRequestId || generation !== renderGeneration) {
-        return;
-      }
-
+      /* La nouvelle langue est maintenant réellement active. */
       activeLanguage = language;
-      currentLanguageImages = getLanguageImageCache(activeLanguage);
-      try { localStorage.setItem('mondoprod-catalogue-lang', language); } catch (error) {}
+      try {
+        localStorage.setItem('mondoprod-catalogue-lang', language);
+      } catch (error) {}
+
       document.documentElement.dataset.catalogueReady = 'true';
       document.documentElement.dataset.catalogueLanguage = activeLanguage;
 
       hideLoading();
       updateCounter();
       preloadAround(0);
+
+      /* Le téléchargement des trois autres langues continue en silence. */
       warmOtherLanguages(language);
 
-      /* L'ancien livre est détruit seulement maintenant que le nouveau est prêt. */
       if (previousPageFlip && previousPageFlip !== pageFlip) {
         try { previousPageFlip.destroy(); } catch (error) {}
       }
@@ -1395,9 +1422,8 @@
       if (requestId !== activeLoadRequestId) return;
 
       console.error('Erreur catalogue ' + language + ' :', error);
-      setActiveLanguage(previousActiveLanguage);
-      activeLanguage = previousActiveLanguage;
-      currentLanguageImages = getLanguageImageCache(previousActiveLanguage);
+      setActiveLanguage(activeLanguage);
+
       showError(
         'Impossible de charger le catalogue : ' +
         (error && error.message ? error.message : 'erreur inconnue')
@@ -1412,41 +1438,38 @@
     }
   }
 
+
   /* ========================================================
-     DRAPEAUX
+     DRAPEAUX — UN SEUL HANDLER, DÉCLENCHÉ AU CLIC
      ======================================================== */
 
-  const languageClickStamp = new WeakMap();
-
-  function handleLanguageButton(button, event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-
-    const now = Date.now();
-    const previousStamp = languageClickStamp.get(button) || 0;
-    if (now - previousStamp < 120) return;
-    languageClickStamp.set(button, now);
-
-    const nextLanguage = button.dataset.lang;
-    if (!catalogues[nextLanguage]) return;
-    if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) return;
-
-    /* On lance le chargement dès pointerdown pour gagner le temps du click. */
-    loadCatalogue(nextLanguage);
-  }
-
   languageButtons.forEach(function(button) {
-    button.addEventListener('pointerdown', function(event) {
-      if (event.pointerType === 'mouse' || event.pointerType === 'pen' || event.pointerType === 'touch') {
-        handleLanguageButton(button, event);
-      }
-    }, {capture:true});
 
     button.addEventListener('click', function(event) {
-      handleLanguageButton(button, event);
-    }, {capture:true});
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const nextLanguage = button.dataset.lang;
+      if (!catalogues[nextLanguage]) return;
+
+      /*
+         requestedLanguage est utilisé plutôt que activeLanguage :
+         cela permet de cliquer immédiatement sur une autre langue
+         pendant qu'une première transition est encore en cours.
+      */
+      if (nextLanguage === requestedLanguage && loadingCatalogue) {
+        return;
+      }
+
+      if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) {
+        return;
+      }
+
+      loadCatalogue(nextLanguage);
+
+    }, { capture:true });
+
   });
 
 
