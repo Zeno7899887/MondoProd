@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V33</title>
+<title>Mondo Prod — Catalogue V29</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -53,8 +53,6 @@
     transform:translateY(0);
     transition:background .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease;
     pointer-events:auto;
-    touch-action:manipulation;
-    -webkit-tap-highlight-color:transparent;
   }
   .lang-btn::after {
     content:attr(aria-label);
@@ -72,7 +70,7 @@
     display:flex;
     justify-content:center;
     align-items:center;
-    padding:0 92px;
+    padding:0 72px;
     min-height:clamp(320px, 62vw, 790px);
   }
 
@@ -81,30 +79,22 @@
     width:min(1160px, 100%);
     max-width:1160px;
     aspect-ratio:1.41421356 / 1;
-    margin:0 auto !important;
+    margin:0 auto;
     transform:translateZ(0);
     transform-style:preserve-3d;
     background:transparent !important;
     overflow:visible;
   }
 
-  /*
-     Le wrapper interne de PageFlip ne doit pas être déplacé :
-     c'est lui qui calcule la position exacte d'une couverture seule.
-     On ne force donc ni left/right ni un margin artificiel.
-  */
   #book .stf,
-  #book .stf__parent,
   #book .stf__wrapper,
   #book .stf__block {
     margin-left:auto !important;
     margin-right:auto !important;
   }
+  #book .stf { left:0 !important; right:0 !important; }
 
-  #book, #book .pdf-page, .book-arrow, .lang-btn {
-    user-select:none;
-    -webkit-user-select:none;
-  }
+  #book, #book .pdf-page, .book-arrow, .lang-btn { user-select:none; -webkit-user-select:none; }
 
   #book .pdf-page {
     background:#fff;
@@ -113,7 +103,21 @@
     margin:0;
     box-shadow:none;
   }
+  #book .pdf-page canvas {
+    display:block;
+    width:100%;
+    height:100%;
+    background:#fff;
+    object-fit:fill;
+    image-rendering:auto;
+  }
 
+  /*
+     Les pages sont rendues en images PNG lossless.
+     C'est volontaire : PageFlip clone les pages HTML pendant une
+     vraie rotation, et les images conservent leur contenu dans ces clones
+     contrairement aux canvas HTML clonés.
+  */
   #book .pdf-page img {
     display:block;
     width:100%;
@@ -125,28 +129,22 @@
     pointer-events:none;
   }
 
-  .book-nav {
-    position:static;
-    z-index:500;
-  }
-
-  /* Les flèches sont placées hors de la surface du livre. */
-
   .book-arrow {
     position:absolute;
     top:50%;
-    z-index:500;
-    width:44px;
-    height:44px;
+    transform:translateY(-50%);
+    z-index:100;
+    width:46px;
+    height:46px;
     appearance:none;
-    border:1px solid rgba(0,0,0,.10);
+    border:1px solid rgba(0,0,0,.12);
     border-radius:50%;
-    background:rgba(255,255,255,.92);
+    background:rgba(255,255,255,.90);
     color:#1b1b1b;
     box-shadow:0 5px 20px rgba(0,0,0,.10);
     backdrop-filter:blur(10px);
     -webkit-backdrop-filter:blur(10px);
-    font-size:29px;
+    font-size:31px;
     line-height:1;
     display:flex;
     align-items:center;
@@ -155,16 +153,33 @@
     cursor:pointer;
     transition:background .18s ease, box-shadow .18s ease, transform .18s ease, opacity .18s ease, border-color .18s ease;
   }
-
-  .book-arrow:hover:not(:disabled) {
-    background:#fff;
-    border-color:rgba(0,0,0,.20);
-    box-shadow:0 8px 25px rgba(0,0,0,.16);
-    transform:scale(1.04);
-  }
-
-  .book-arrow:active:not(:disabled) { transform:scale(.98); }
+  .book-arrow:hover:not(:disabled) { background:#fff; border-color:rgba(0,0,0,.20); box-shadow:0 8px 25px rgba(0,0,0,.16); transform:translateY(-50%) scale(1.04); }
+  .book-arrow:active:not(:disabled) { transform:translateY(-50%) scale(.98); }
   .book-arrow:disabled { opacity:.25; cursor:default; box-shadow:none; }
+  #first-page { left:10px; }
+  #prev-page { left:62px; }
+  #next-page { right:62px; }
+  #last-page { right:10px; }
+
+  /* Zones de coins interactifs. Elles épousent exactement la zone du livre
+     et transmettent les Pointer Events directement à PageFlip. */
+  #corner-layer {
+    position:absolute;
+    z-index:150;
+    pointer-events:none;
+  }
+  .corner-zone {
+    position:absolute;
+    width:82px;
+    height:82px;
+    pointer-events:auto;
+    touch-action:none;
+    background:transparent;
+  }
+  #corner-tl { left:0; top:0; cursor:pointer; }
+  #corner-bl { left:0; bottom:0; cursor:pointer; }
+  #corner-tr { right:0; top:0; cursor:pointer; }
+  #corner-br { right:0; bottom:0; cursor:pointer; }
 
   /* Le chargement est désormais totalement silencieux : aucune bannière
      ni aucun texte ne doit rester au milieu de la liseuse. */
@@ -231,24 +246,35 @@
 
   @media (max-width: 900px) {
     #catalogue-reader { padding-left:8px; padding-right:8px; }
-    #book-area { padding-left:70px; padding-right:70px; min-height:0; }
+    #book-area { padding:0 52px; min-height:0; }
+    #book { width:min(100%, 1040px); }
+    #first-page { left:2px; }
+    #prev-page { left:48px; }
+    #next-page { right:48px; }
+    #last-page { right:2px; }
   }
 
   @media (max-width: 700px) {
     #catalogue-languages { gap:6px; margin-bottom:10px; }
     .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
     .lang-btn::after { font-size:10px; }
-    #book-area { padding-left:54px; padding-right:54px; }
-    #book { width:100%; max-width:470px; aspect-ratio:1 / 1.41421356; margin-left:auto !important; margin-right:auto !important; }
-    .book-arrow { width:38px; height:38px; font-size:25px; }
+    #book-area { padding:0 42px; }
+    #book { width:min(92vw, 470px); aspect-ratio:1 / 1.41421356; max-width:470px; margin-left:auto !important; margin-right:auto !important; }
+    .book-arrow { width:40px; height:40px; font-size:27px; }
+    #first-page { left:0; }
+    #prev-page { left:39px; }
+    #next-page { right:39px; }
+    #last-page { right:0; }
     #reader-controls { margin-top:6px; }
   }
 
   @media (max-width: 430px) {
     .lang-btn { min-width:0; width:44px; padding:0; }
     .lang-btn::after { display:none; }
-    #book-area { padding-left:46px; padding-right:46px; }
-    .book-arrow { width:34px; height:34px; font-size:22px; }
+    #book-area { padding:0 36px; }
+    .book-arrow { width:36px; height:36px; font-size:24px; }
+    #prev-page { left:34px; }
+    #next-page { right:34px; }
   }
 </style>
 </head>
@@ -305,17 +331,50 @@
 
   <div id="book-area">
 
-    <div class="book-nav book-nav-left" aria-label="Navigation gauche">
-      <button id="first-page" class="book-arrow" type="button" aria-label="Première page">«</button>
-      <button id="prev-page" class="book-arrow" type="button" aria-label="Page précédente">‹</button>
-    </div>
+    <button
+      id="first-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Première page">
+      «
+    </button>
+
+
+    <button
+      id="prev-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page précédente">
+      ‹
+    </button>
+
 
     <div id="book"></div>
 
-    <div class="book-nav book-nav-right" aria-label="Navigation droite">
-      <button id="next-page" class="book-arrow" type="button" aria-label="Page suivante">›</button>
-      <button id="last-page" class="book-arrow" type="button" aria-label="Dernière page">»</button>
+    <div id="corner-layer" aria-hidden="true">
+      <div id="corner-tl" class="corner-zone"></div>
+      <div id="corner-bl" class="corner-zone"></div>
+      <div id="corner-tr" class="corner-zone"></div>
+      <div id="corner-br" class="corner-zone"></div>
     </div>
+
+
+    <button
+      id="next-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page suivante">
+      ›
+    </button>
+
+
+    <button
+      id="last-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Dernière page">
+      »
+    </button>
 
   </div>
 
@@ -451,10 +510,16 @@
       document.querySelectorAll(".lang-btn")
     );
 
+  const cornerLayer = document.getElementById("corner-layer");
+  const cornerTL = document.getElementById("corner-tl");
+  const cornerBL = document.getElementById("corner-bl");
+  const cornerTR = document.getElementById("corner-tr");
+  const cornerBR = document.getElementById("corner-br");
+
 
   /* ========================================================
      ÉTAT
-     ======================================================== */
+     ========================================================
 
   let pageFlip = null;
 
@@ -467,6 +532,10 @@
   let activeLoadRequestId = 0;
   let loadingCatalogue = false;
 
+  /* Cache des téléchargements PDF. On ne touche pas à la mécanique d'affichage
+     de V28 : on accélère seulement l'arrivée des données des autres langues. */
+  const catalogueBufferPromises = new Map();
+
   /* Chaque page rendue est conservée pour le PDF actuellement affiché. */
   const renderedPages = new Set();
   const renderingPages = new Map();
@@ -475,13 +544,6 @@
 
   /* Pages préparées avant toute interaction utilisateur. */
   let readyPromise = Promise.resolve();
-
-  /* Cache binaire des PDF par langue. On recrée un PDFDocumentProxy propre
-     à chaque affichage pour éviter les états/rendus persistants de PDF.js. */
-  const pdfDataCache = new Map();
-  const pdfPrefetchPromises = new Map();
-  const renderedImageCache = new Map();
-  let currentLanguageImages = null;
 
 
   /* ========================================================
@@ -695,25 +757,9 @@
     renderGeneration++;
     cancelCurrentRenders();
     renderedPages.clear();
-    /* Les URLs mises en cache par langue restent valides pour les prochains switches. */
-    pageImageUrls.clear();
+    revokeAllPageUrls();
     readyPromise = Promise.resolve();
   }
-
-  function getLanguageImageCache(language) {
-    let cache = renderedImageCache.get(language);
-    if (!cache) {
-      cache = new Map();
-      renderedImageCache.set(language, cache);
-    }
-    return cache;
-  }
-
-  function getCurrentImageCache() {
-    if (!currentLanguageImages) currentLanguageImages = getLanguageImageCache(activeLanguage);
-    return currentLanguageImages;
-  }
-
 
   function canvasToPngBlob(canvas) {
     return new Promise(function(resolve, reject) {
@@ -737,15 +783,6 @@
 
     const image = pageElement.querySelector('img');
     if (!image) return false;
-
-    const cached = getCurrentImageCache().get(index);
-    if (cached) {
-      image.src = cached;
-      image.style.visibility = 'visible';
-      pageImageUrls.set(index, cached);
-      renderedPages.add(index);
-      return true;
-    }
 
     const pdfAtStart = pdf;
     const entry = { generation: generation, task: null, promise: null };
@@ -784,13 +821,8 @@
       const blob = await canvasToPngBlob(canvas);
       if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
 
-      const cache = getCurrentImageCache();
-      const previousCached = cache.get(index);
-      if (previousCached) {
-        try { URL.revokeObjectURL(previousCached); } catch (error) {}
-      }
+      revokePageUrl(index);
       const objectUrl = URL.createObjectURL(blob);
-      cache.set(index, objectUrl);
       pageImageUrls.set(index, objectUrl);
 
       image.onload = null;
@@ -939,15 +971,6 @@
       image.decoding = 'async';
       image.draggable = false;
 
-      const cachedImages = getCurrentImageCache();
-      const cachedUrl = cachedImages.get(index);
-      if (cachedUrl) {
-        image.src = cachedUrl;
-        image.style.visibility = 'visible';
-        renderedPages.add(index);
-        pageImageUrls.set(index, cachedUrl);
-      }
-
       page.appendChild(image);
       bookElement.appendChild(page);
       pageElements.push(page);
@@ -969,7 +992,6 @@
           showCover: true,
           drawShadow: true,
           maxShadowOpacity: .78,
-          /* Coins natifs PageFlip : clic/drag dans les coins uniquement. */
           showPageCorners: true,
           useMouseEvents: true,
           swipeDistance: 25,
@@ -1208,95 +1230,65 @@
   }
 
   /* ========================================================
-     CACHE DES PDF PAR LANGUE — RAPIDE ET SÛR
+     CHARGER UN CATALOGUE
      ======================================================== */
 
-  async function getPdfArrayBuffer(language) {
-
-    if (pdfDataCache.has(language)) {
-      return pdfDataCache.get(language);
-    }
-
-    if (pdfPrefetchPromises.has(language)) {
-      return pdfPrefetchPromises.get(language);
-    }
+  function getCatalogueBuffer(language) {
 
     const url = catalogues[language];
-    if (!url) throw new Error('Langue de catalogue inconnue.');
+    if (!url) {
+      return Promise.reject(new Error('Langue de catalogue inconnue.'));
+    }
 
-    const promise = fetch(url, {
-      method: 'GET',
-      cache: 'force-cache',
-      credentials: 'omit'
-    })
+    if (!catalogueBufferPromises.has(language)) {
+      const promise = fetch(url, {
+        method: 'GET',
+        cache: 'force-cache',
+        credentials: 'omit'
+      })
       .then(function(response) {
-        if (!response.ok) throw new Error('HTTP ' + response.status + ' — ' + url);
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status + ' — ' + url);
+        }
         return response.arrayBuffer();
       })
-      .then(function(data) {
-        pdfDataCache.set(language, data);
-        return data;
-      })
-      .finally(function() {
-        pdfPrefetchPromises.delete(language);
+      .catch(function(error) {
+        catalogueBufferPromises.delete(language);
+        throw error;
       });
 
-    pdfPrefetchPromises.set(language, promise);
-    return promise;
+      catalogueBufferPromises.set(language, promise);
+    }
+
+    return catalogueBufferPromises.get(language);
   }
 
-  async function getFreshPdfDocument(language) {
-    const source = await getPdfArrayBuffer(language);
-    const dataCopy = source.slice(0);
+  function prefetchOtherCatalogues(currentLanguage) {
+    Object.keys(catalogues).forEach(function(language) {
+      if (language !== currentLanguage) {
+        getCatalogueBuffer(language).catch(function() {});
+      }
+    });
+  }
+
+  async function getCatalogueDocument(language, requestId) {
+
+    const buffer = await getCatalogueBuffer(language);
+
+    if (requestId !== activeLoadRequestId) return null;
+
+    /* PDF.js peut transférer le buffer au worker. On lui donne donc une copie
+       pour que le cache reste réutilisable lors d'un prochain switch. */
+    const data = buffer.slice(0);
 
     return pdfjsLib.getDocument({
-      data: new Uint8Array(dataCopy),
+      data: data,
       disableAutoFetch: false,
       disableStream: false,
       disableRange: false,
       cMapPacked: true
     }).promise;
   }
-
-  function prefetchOtherPdfData(currentLanguage) {
-    Object.keys(catalogues).forEach(function(language) {
-      if (language === currentLanguage) return;
-      getPdfArrayBuffer(language).catch(function(error) {
-        console.warn('Préchargement PDF ' + language + ' :', error);
-      });
-    });
-  }
-
-  async function warmOtherLanguages(currentLanguage) {
-    const languages = Object.keys(catalogues).filter(function(language) {
-      return language !== currentLanguage;
-    });
-
-    prefetchOtherPdfData(currentLanguage);
-
-    await Promise.all(languages.map(async function(language) {
-      let otherPdf = null;
-      try {
-        otherPdf = await getFreshPdfDocument(language);
-        const cache = getLanguageImageCache(language);
-
-        for (const index of [0, 1, 2, 3]) {
-          if (index >= otherPdf.numPages || cache.has(index)) continue;
-          await renderLanguageImage(otherPdf, language, index);
-        }
-      } catch (error) {
-        console.warn('Préchargement langue ' + language + ' :', error);
-      } finally {
-        try {
-          if (otherPdf && typeof otherPdf.destroy === 'function') await otherPdf.destroy();
-        } catch (error) {}
-      }
-    }));
-  }
-
-  /* ========================================================
-     CHARGER UN CATALOGUE
-     ======================================================== */
 
   async function loadCatalogue(language) {
 
@@ -1310,40 +1302,25 @@
 
     setActiveLanguage(language);
     hideError();
-    showLoading('');
+    showLoading('Chargement du catalogue ' + language.toUpperCase() + '…');
 
     try {
 
       /*
-         1. On récupère le document demandé.
-         2. On prépare seulement les premières pages nécessaires.
-         3. Ensuite seulement on remplace le livre visible.
-
-         Ainsi un ancien chargement ne peut jamais écraser un nouveau clic.
+        IMPORTANT : on ne détruit PAS le catalogue actuellement visible
+        tant que le nouveau PDF n'est pas téléchargé et que ses premières
+        pages ne sont pas prêtes. Le bouton de langue reste donc fiable,
+        même si l'utilisateur clique plusieurs fois.
       */
-      const loadedPdf = await getCachedPdfDocument(language);
+      const loadedPdf = await getCatalogueDocument(language, requestId);
 
       if (!loadedPdf || requestId !== activeLoadRequestId) return;
 
-      const targetCache = getLanguageImageCache(language);
-
-      /* Prépare la couverture et les trois pages qui suivent.
-         Si elles ont déjà été préchargées, cette étape est quasi instantanée. */
-      const firstPages = [0, 1, 2, 3].filter(function(index) {
-        return index < loadedPdf.numPages && !targetCache.has(index);
-      });
-
-      for (const index of firstPages) {
-        if (requestId !== activeLoadRequestId) return;
-        await renderLanguageImage(loadedPdf, language, index);
-      }
-
-      if (requestId !== activeLoadRequestId) return;
-
+      /* Créer le nouveau livre uniquement après le chargement du PDF. */
       const previousPageFlip = pageFlip;
+      const previousPdf = pdf;
 
       pdf = loadedPdf;
-      currentLanguageImages = targetCache;
       resetRenderState();
       const generation = renderGeneration;
 
@@ -1355,14 +1332,25 @@
       pageFlip.update();
       pageFlip.turnToPage(0);
 
-      if (requestId !== activeLoadRequestId || generation !== renderGeneration) return;
+      /*
+        Deux frames permettent à PageFlip de construire sa géométrie avant
+        que PDF.js ne fixe la taille exacte des canvas.
+      */
+      await sleepFrame();
 
-      /* La nouvelle langue est maintenant réellement active. */
+      /*
+        Préchargement silencieux : on prépare les 4 premières pages avant
+        d'autoriser la navigation. Aucun message de préparation ne reste donc
+        affiché au milieu du lecteur.
+      */
+      await ensurePagesReady([0, 1, 2, 3, 4, 5, 6, 7]);
+
+      if (requestId !== activeLoadRequestId || generation !== renderGeneration) {
+        return;
+      }
+
       activeLanguage = language;
-      try {
-        localStorage.setItem('mondoprod-catalogue-lang', language);
-      } catch (error) {}
-
+      try { localStorage.setItem('mondoprod-catalogue-lang', language); } catch (error) {}
       document.documentElement.dataset.catalogueReady = 'true';
       document.documentElement.dataset.catalogueLanguage = activeLanguage;
 
@@ -1370,17 +1358,17 @@
       updateCounter();
       preloadAround(0);
 
-      /* Le téléchargement des trois autres langues continue en silence. */
-      warmOtherLanguages(language);
+      /* Prépare silencieusement les 3 autres catalogues pendant que
+         l'utilisateur consulte celui qui vient d'être ouvert. */
+      prefetchOtherCatalogues(language);
+      positionCornerLayer();
 
+      /* L'ancien livre est détruit seulement maintenant que le nouveau est prêt. */
       if (previousPageFlip && previousPageFlip !== pageFlip) {
         try { previousPageFlip.destroy(); } catch (error) {}
       }
-
-      if (previousPdf && previousPdf !== loadedPdf) {
-        try {
-          if (typeof previousPdf.destroy === 'function') previousPdf.destroy();
-        } catch (error) {}
+      if (previousPdf && previousPdf !== loadedPdf && typeof previousPdf.cleanup === 'function') {
+        try { previousPdf.cleanup(); } catch (error) {}
       }
 
     } catch (error) {
@@ -1389,7 +1377,6 @@
 
       console.error('Erreur catalogue ' + language + ' :', error);
       setActiveLanguage(activeLanguage);
-
       showError(
         'Impossible de charger le catalogue : ' +
         (error && error.message ? error.message : 'erreur inconnue')
@@ -1404,160 +1391,181 @@
     }
   }
 
-
   /* ========================================================
-     DRAPEAUX — POINTERUP + CLICK DE SECOURS
+     DRAPEAUX
      ======================================================== */
 
-  let ignoreLanguageClickUntil = 0;
+  languageButtons.forEach(
+    function (button) {
 
-  function selectLanguageFromButton(button) {
-    const nextLanguage = button.dataset.lang;
-    if (!catalogues[nextLanguage]) return;
-    if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) return;
+      button.addEventListener(
+        "click",
+        function (event) {
 
-    ignoreLanguageClickUntil = Date.now() + 650;
-    loadCatalogue(nextLanguage);
+          event.preventDefault();
+          event.stopPropagation();
+
+          const requestedLanguage = button.dataset.lang;
+
+          if (!catalogues[requestedLanguage]) {
+            return;
+          }
+
+          if (requestedLanguage === activeLanguage && pdf && !loadingCatalogue) {
+            return;
+          }
+
+          loadCatalogue(requestedLanguage);
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ========================================================
+     COINS INTERACTIFS
+     ======================================================== */
+
+  function positionCornerLayer() {
+    if (!cornerLayer || !bookElement) return;
+
+    const areaRect = document.getElementById('book-area').getBoundingClientRect();
+    const bookRect = bookElement.getBoundingClientRect();
+
+    cornerLayer.style.left = (bookRect.left - areaRect.left) + 'px';
+    cornerLayer.style.top = (bookRect.top - areaRect.top) + 'px';
+    cornerLayer.style.width = bookRect.width + 'px';
+    cornerLayer.style.height = bookRect.height + 'px';
   }
 
-  languageButtons.forEach(function(button) {
-    button.addEventListener('pointerup', function(event) {
+  function bookPointFromPointer(event) {
+    const rect = bookElement.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    return { x: x, y: y };
+  }
+
+  function bindCornerZone(zone) {
+    if (!zone) return;
+
+    let activePointerId = null;
+
+    zone.addEventListener('pointerdown', function(event) {
+      if (!pageFlip || !pdf || pageFlipIsFlipping()) return;
+
+      activePointerId = event.pointerId;
+      try { zone.setPointerCapture(event.pointerId); } catch (error) {}
+
       event.preventDefault();
       event.stopPropagation();
-      selectLanguageFromButton(button);
-    }, { capture:true });
 
-    button.addEventListener('click', function(event) {
-      event.preventDefault();
-      event.stopPropagation();
-      if (Date.now() < ignoreLanguageClickUntil) return;
-      selectLanguageFromButton(button);
-    }, { capture:true });
-  });
-
-
-  /* ========================================================
-     COINS INTERACTIFS — MÊMES COORDONNÉES QUE PAGEFLIP
-     ======================================================== */
-
-  let cornerPointerActive = false;
-  let cornerPointerId = null;
-
-  function getBookPointFromPageFlip(event) {
-    if (!pageFlip) return { x:0, y:0 };
-    const distElement = pageFlip.getUI().getDistElement();
-    const rect = distElement.getBoundingClientRect();
-    return { x:event.clientX - rect.left, y:event.clientY - rect.top };
-  }
-
-  function pointIsPageFlipCorner(point) {
-    if (!pageFlip) return false;
-    const rect = pageFlip.getBoundsRect();
-    const operatingDistance = Math.sqrt(rect.pageWidth * rect.pageWidth + rect.height * rect.height) / 5;
-    return (
-      point.x > 0 && point.y > 0 &&
-      point.x < rect.width && point.y < rect.height &&
-      (point.x < operatingDistance || point.x > rect.width - operatingDistance) &&
-      (point.y < operatingDistance || point.y > rect.height - operatingDistance)
-    );
-  }
-
-  function pointerOnCorner(event) {
-    if (!pageFlip || pageFlipIsFlipping()) return;
-    if (event.target && event.target.closest && event.target.closest('.lang-btn')) return;
-
-    const point = getBookPointFromPageFlip(event);
-    if (!pointIsPageFlipCorner(point)) return;
-
-    cornerPointerActive = true;
-    cornerPointerId = event.pointerId;
-
-    try { event.currentTarget.setPointerCapture(event.pointerId); } catch (error) {}
-    pageFlip.startUserTouch(point);
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function pointerMoveCorner(event) {
-    if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
-    const point = getBookPointFromPageFlip(event);
-    pageFlip.userMove(point, event.pointerType === 'touch');
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  function pointerUpCorner(event) {
-    if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
-    const point = getBookPointFromPageFlip(event);
-    cornerPointerActive = false;
-    cornerPointerId = null;
-    pageFlip.userStop(point, false);
-    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch (error) {}
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  bookElement.addEventListener('pointerdown', pointerOnCorner, true);
-  bookElement.addEventListener('pointermove', pointerMoveCorner, true);
-  bookElement.addEventListener('pointerup', pointerUpCorner, true);
-  bookElement.addEventListener('pointercancel', pointerUpCorner, true);
-
-
-  /* ========================================================
-     FLÈCHES — SANS ATTENDRE LE PRÉCHARGEMENT
-     ======================================================== */
-
-  function programmaticFlip(method, corner) {
-    if (!pageFlip || pageFlipIsFlipping()) return;
-
-    const settings = pageFlip.getSettings();
-    const previousValue = settings.disableFlipByClick;
-    settings.disableFlipByClick = false;
-
-    try {
-      if (typeof pageFlip[method] === 'function') {
-        pageFlip[method](corner);
+      try {
+        pageFlip.startUserTouch(bookPointFromPointer(event));
+      } catch (error) {
+        activePointerId = null;
       }
-    } catch (error) {
-      console.warn('Navigation PageFlip :', error);
-    } finally {
-      settings.disableFlipByClick = previousValue;
+    });
+
+    zone.addEventListener('pointermove', function(event) {
+      if (activePointerId !== event.pointerId || !pageFlip) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      try {
+        pageFlip.userMove(bookPointFromPointer(event), false);
+      } catch (error) {}
+    });
+
+    function finish(event) {
+      if (activePointerId !== event.pointerId || !pageFlip) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      try {
+        pageFlip.userStop(bookPointFromPointer(event), false);
+      } catch (error) {}
+
+      try { zone.releasePointerCapture(event.pointerId); } catch (error) {}
+      activePointerId = null;
     }
+
+    zone.addEventListener('pointerup', finish);
+    zone.addEventListener('pointercancel', finish);
   }
 
-  firstButton.addEventListener('click', function() {
-    runOrQueueNavigation(function() {
-      if (pageFlip) pageFlip.turnToPage(0);
-    });
-  });
+  bindCornerZone(cornerTL);
+  bindCornerZone(cornerBL);
+  bindCornerZone(cornerTR);
+  bindCornerZone(cornerBR);
 
-  lastButton.addEventListener('click', function() {
-    runOrQueueNavigation(function() {
-      if (pageFlip && pdf) pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
-    });
-  });
+  positionCornerLayer();
 
-  prevButton.addEventListener('click', function() {
-    if (!pageFlip || !pdf) return;
-    if (pageFlipIsFlipping()) {
-      pendingNavigation = function() {
-        if (pageFlip && !pageFlipIsFlipping()) programmaticFlip('flipPrev', 'bottom');
-      };
-      return;
+  /* ========================================================
+     FLÈCHES
+     ======================================================== */
+
+  firstButton.addEventListener(
+    "click",
+    function () {
+      runOrQueueNavigation(function () {
+        if (!pageFlip) return;
+        pageFlip.turnToPage(0);
+      });
     }
-    programmaticFlip('flipPrev', 'bottom');
-  });
+  );
 
-  nextButton.addEventListener('click', function() {
-    if (!pageFlip || !pdf) return;
-    if (pageFlipIsFlipping()) {
-      pendingNavigation = function() {
-        if (pageFlip && !pageFlipIsFlipping()) programmaticFlip('flipNext', 'bottom');
-      };
-      return;
+
+  lastButton.addEventListener(
+    "click",
+    function () {
+      runOrQueueNavigation(function () {
+        if (!pageFlip || !pdf) return;
+        pageFlip.turnToPage(Math.max(0, pdf.numPages - 1));
+      });
     }
-    programmaticFlip('flipNext', 'bottom');
-  });
+  );
+
+
+  prevButton.addEventListener(
+    "click",
+    async function () {
+      if (!pageFlip || !pdf) return;
+      const current = pageFlip.getCurrentPageIndex();
+      const target = Math.max(0, current - 2);
+      if (pageFlipIsFlipping()) {
+        pendingNavigation = async function () {
+          await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
+          if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
+        };
+        return;
+      }
+      await ensurePagesReady([current - 4, current - 3, current - 2, current - 1, current, current + 1, current + 2]);
+      if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipPrev("bottom");
+    }
+  );
+
+
+  nextButton.addEventListener(
+    "click",
+    async function () {
+      if (!pageFlip || !pdf) return;
+      const current = pageFlip.getCurrentPageIndex();
+      const target = Math.min(pdf.numPages - 1, current + 2);
+      if (pageFlipIsFlipping()) {
+        pendingNavigation = async function () {
+          await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
+          if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
+        };
+        return;
+      }
+      await ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2, current + 3, current + 4]);
+      if (pageFlip && !pageFlipIsFlipping()) pageFlip.flipNext("bottom");
+    }
+  );
 
 
   /* ========================================================
@@ -1709,6 +1717,7 @@
           return ensurePagesReady([current - 2, current - 1, current, current + 1, current + 2]);
         });
         preloadAround(current);
+        positionCornerLayer();
       }
 
     }, 180);
@@ -1716,21 +1725,18 @@
   });
 
 
-  window.addEventListener('beforeunload', function() {
-    renderedImageCache.forEach(function(cache) {
-      cache.forEach(function(url) {
-        try { URL.revokeObjectURL(url); } catch (error) {}
-      });
-    });
-  });
-
   /* ========================================================
      DÉMARRAGE
      ======================================================== */
 
-  loadCatalogue(
-    detectLanguage()
-  );
+  const initialLanguage = detectLanguage();
+  loadCatalogue(initialLanguage);
+
+  /* Le préchargement des autres langues démarre sans bloquer l'ouverture
+     du catalogue courant. */
+  setTimeout(function() {
+    prefetchOtherCatalogues(initialLanguage);
+  }, 350);
 
 })();
 
