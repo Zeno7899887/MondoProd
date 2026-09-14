@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V26</title>
+<title>Mondo Prod — Catalogue V27</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -113,16 +113,21 @@
   }
 
   /*
-     Pendant l'ouverture de la couverture, on masque uniquement la page
-     intérieure placée du mauvais côté du livre. La page réellement visible
-     derrière la couverture reste donc affichée pendant toute l'animation.
+     Les pages sont rendues en images PNG lossless.
+     C'est volontaire : PageFlip clone les pages HTML pendant une
+     vraie rotation, et les images conservent leur contenu dans ces clones
+     contrairement aux canvas HTML clonés.
   */
-  #book.cover-front-flip-hiding .stf__item.--soft.--left { visibility:hidden !important; }
-  #book.cover-front-flip-hiding .stf__item.--hard { visibility:visible !important; }
-
-  /* Même logique pour la fermeture de la quatrième de couverture. */
-  #book.cover-back-flip-hiding .stf__item.--soft.--right { visibility:hidden !important; }
-  #book.cover-back-flip-hiding .stf__item.--hard { visibility:visible !important; }
+  #book .pdf-page img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:fill;
+    background:#fff;
+    user-select:none;
+    -webkit-user-drag:none;
+    pointer-events:none;
+  }
 
   .book-arrow {
     position:absolute;
@@ -497,6 +502,7 @@
   /* Chaque page rendue est conservée pour le PDF actuellement affiché. */
   const renderedPages = new Set();
   const renderingPages = new Map();
+  const pageImageUrls = new Map();
   let renderGeneration = 0;
 
   /* Pages préparées avant toute interaction utilisateur. */
@@ -684,17 +690,6 @@
     });
   }
 
-  function clearPageCanvas(pageElement) {
-    const canvas = pageElement && pageElement.querySelector('canvas');
-    if (!canvas) return;
-    try {
-      const context = canvas.getContext('2d');
-      if (context) context.clearRect(0, 0, canvas.width, canvas.height);
-    } catch (error) {}
-    canvas.width = 1;
-    canvas.height = 1;
-  }
-
   function cancelCurrentRenders() {
     renderingPages.forEach(function(entry) {
       try {
@@ -706,11 +701,36 @@
     renderingPages.clear();
   }
 
+  function revokePageUrl(index) {
+    const url = pageImageUrls.get(index);
+    if (url) {
+      try { URL.revokeObjectURL(url); } catch (error) {}
+      pageImageUrls.delete(index);
+    }
+  }
+
+  function revokeAllPageUrls() {
+    pageImageUrls.forEach(function(url) {
+      try { URL.revokeObjectURL(url); } catch (error) {}
+    });
+    pageImageUrls.clear();
+  }
+
   function resetRenderState() {
     renderGeneration++;
     cancelCurrentRenders();
     renderedPages.clear();
+    revokeAllPageUrls();
     readyPromise = Promise.resolve();
+  }
+
+  function canvasToPngBlob(canvas) {
+    return new Promise(function(resolve, reject) {
+      canvas.toBlob(function(blob) {
+        if (blob) resolve(blob);
+        else reject(new Error('Impossible de créer l’image PNG de la page.'));
+      }, 'image/png');
+    });
   }
 
   async function renderPage(index, generation) {
@@ -724,8 +744,8 @@
     const pageElement = document.querySelector('#book .pdf-page[data-page-index="' + index + '"]');
     if (!pageElement) return false;
 
-    const canvas = pageElement.querySelector('canvas');
-    if (!canvas) return false;
+    const image = pageElement.querySelector('img');
+    if (!image) return false;
 
     const pdfAtStart = pdf;
     const entry = { generation: generation, task: null, promise: null };
@@ -739,10 +759,9 @@
       const scale = targetWidth / baseViewport.width;
       const viewport = page.getViewport({ scale: scale });
 
+      const canvas = document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
 
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) return false;
@@ -761,6 +780,18 @@
       await renderTask.promise;
 
       if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
+
+      const blob = await canvasToPngBlob(canvas);
+      if (generation !== renderGeneration || pdf !== pdfAtStart) return false;
+
+      revokePageUrl(index);
+      const objectUrl = URL.createObjectURL(blob);
+      pageImageUrls.set(index, objectUrl);
+
+      image.onload = null;
+      image.src = objectUrl;
+      image.alt = 'Page ' + (index + 1);
+      image.style.visibility = 'visible';
 
       renderedPages.add(index);
       return true;
@@ -789,14 +820,13 @@
     if (generation !== renderGeneration) return false;
 
     /*
-       Les pages proches de la position courante sont rendues l'une après
-       l'autre. Cela évite qu'une animation démarre alors qu'un canvas voisin
-       est encore en train de recevoir son rendu PDF.
+       Les pages sont rendues en parallèle dans des canvas temporaires hors-DOM,
+       puis converties en PNG lossless. Les pages visibles de PageFlip sont donc
+       de vraies images HTML, clonables sans perte de contenu pendant la rotation.
     */
-    for (const index of unique) {
-      if (generation !== renderGeneration) return false;
-      await renderPage(index, generation);
-    }
+    await Promise.all(unique.map(function(index) {
+      return renderPage(index, generation);
+    }));
 
     return generation === renderGeneration;
   }
@@ -806,15 +836,43 @@
     if (!pdf) return;
     const generation = renderGeneration;
     const total = pdf.numPages;
-    const radius = 6;
+    const radius = 7;
     const indices = [];
 
-    for (let i = index - radius; i <= index + radius; i++) {
-      if (i >= 0 && i < total) indices.push(i);
+    /* Priorité aux pages immédiatement visibles à la prochaine animation. */
+    const priority = [
+      index,
+      index + 1,
+      index + 2,
+      index + 3,
+      index - 1,
+      index - 2,
+      index + 4,
+      index + 5,
+      index - 3,
+      index - 4,
+      index + 6,
+      index + 7,
+      index - 5,
+      index - 6,
+      index - 7
+    ];
+
+    priority.forEach(function(i) {
+      if (i >= 0 && i < total && !indices.includes(i)) indices.push(i);
+    });
+
+    if (index <= 3) {
+      [0,1,2,3,4,5,6,7].forEach(function(i) {
+        if (i < total && !indices.includes(i)) indices.push(i);
+      });
     }
 
-    if (index <= 3) [0,1,2,3,4,5,6,7].forEach(function(i) { if (i < total) indices.push(i); });
-    if (index >= total - 4) [total-8,total-7,total-6,total-5,total-4,total-3,total-2,total-1].forEach(function(i) { if (i >= 0 && i < total) indices.push(i); });
+    if (index >= total - 4) {
+      [total-8,total-7,total-6,total-5,total-4,total-3,total-2,total-1].forEach(function(i) {
+        if (i >= 0 && i < total && !indices.includes(i)) indices.push(i);
+      });
+    }
 
     readyPromise = readyPromise.then(function() {
       if (generation !== renderGeneration) return;
@@ -867,12 +925,16 @@
         page.setAttribute('data-density', 'hard');
       }
 
-      const canvas =
-        document.createElement('canvas');
+      const image =
+        document.createElement('img');
 
-      canvas.setAttribute('aria-hidden', 'true');
+      image.setAttribute('aria-hidden', 'true');
+      image.alt = 'Page ' + (index + 1);
+      image.style.visibility = 'hidden';
+      image.decoding = 'async';
+      image.draggable = false;
 
-      page.appendChild(canvas);
+      page.appendChild(image);
       bookElement.appendChild(page);
       pageElements.push(page);
 
@@ -897,6 +959,7 @@
           useMouseEvents: true,
           swipeDistance: 25,
           clickEventForward: true,
+          disableFlipByClick: true,
           mobileScrollSupport: true,
           usePortrait: isMobileView(),
           startPage: 0,
@@ -1018,36 +1081,35 @@
      ÉVÉNEMENTS PAGEFLIP
      ======================================================== */
 
-  function hidePagesUnderCover() {
+  function attachPageFlipEvents() {
 
-    bookElement.classList.remove(
-      'cover-front-flip-hiding',
-      'cover-back-flip-hiding'
-    );
+    if (!pageFlip) return;
 
-    if (!pageFlip || !pdf) return;
+    pageFlip.on('flip', function() {
+      updateCounter();
+      preloadAround(pageFlip.getCurrentPageIndex());
+    });
 
-    const index = pageFlip.getCurrentPageIndex();
-    const total = pdf.numPages;
+    pageFlip.on('changeState', function(event) {
+      const state = event && event.data ? String(event.data) : '';
+      const index = pageFlip.getCurrentPageIndex();
 
-    if (index <= 1) {
-      bookElement.classList.add('cover-front-flip-hiding');
-    } else if (index >= total - 2) {
-      bookElement.classList.add('cover-back-flip-hiding');
-    }
+      if (state === 'read') {
+        updateCounter();
+        preloadAround(index);
+        flushPendingNavigation();
+        return;
+      }
 
+      updateCounter();
+    });
+
+    pageFlip.on('changeOrientation', function() {
+      updateCounter();
+      resetRenderState();
+      preloadAround(pageFlip.getCurrentPageIndex());
+    });
   }
-
-
-  function showPagesUnderCover() {
-
-    bookElement.classList.remove(
-      'cover-front-flip-hiding',
-      'cover-back-flip-hiding'
-    );
-
-  }
-
 
   /* Navigation robustesse : une commande demandée pendant une
      animation est mémorisée et exécutée dès que PageFlip redevient
