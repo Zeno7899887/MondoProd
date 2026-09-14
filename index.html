@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V23</title>
+<title>Mondo Prod — Catalogue V24</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -112,9 +112,17 @@
     image-rendering:auto;
   }
 
-  /* Keeps the unused half transparent while the physical cover is being turned. */
-  #book.cover-flip-hiding .stf__item.--soft { visibility:hidden !important; }
-  #book.cover-flip-hiding .stf__item.--hard { visibility:visible !important; }
+  /*
+     Pendant l'ouverture de la couverture, on masque uniquement la page
+     intérieure placée du mauvais côté du livre. La page réellement visible
+     derrière la couverture reste donc affichée pendant toute l'animation.
+  */
+  #book.cover-front-flip-hiding .stf__item.--soft.--left { visibility:hidden !important; }
+  #book.cover-front-flip-hiding .stf__item.--hard { visibility:visible !important; }
+
+  /* Même logique pour la fermeture de la quatrième de couverture. */
+  #book.cover-back-flip-hiding .stf__item.--soft.--right { visibility:hidden !important; }
+  #book.cover-back-flip-hiding .stf__item.--hard { visibility:visible !important; }
 
   .book-arrow {
     position:absolute;
@@ -721,6 +729,7 @@
     renderGeneration++;
     cancelCurrentRenders();
     renderedPages.clear();
+    readyPromise = Promise.resolve();
   }
 
   async function renderPage(index, generation) {
@@ -796,11 +805,18 @@
     const unique = Array.from(new Set(indices))
       .filter(function(index) { return pdf && index >= 0 && index < pdf.numPages; });
 
-    for (const index of unique) {
-      if (generation !== renderGeneration) return false;
-      await renderPage(index, generation);
-    }
-    return true;
+    if (generation !== renderGeneration) return false;
+
+    /*
+       Les pages sont différentes : PDF.js peut donc les rendre en parallèle.
+       Cela réduit fortement le temps avant que la première animation soit
+       autorisée, tout en gardant un canvas différent pour chaque page.
+    */
+    await Promise.all(unique.map(function(index) {
+      return renderPage(index, generation);
+    }));
+
+    return generation === renderGeneration;
   }
 
   function preloadAround(index) {
@@ -1022,14 +1038,31 @@
 
   function hidePagesUnderCover() {
 
-    bookElement.classList.add('cover-flip-hiding');
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
+
+    if (!pageFlip || !pdf) return;
+
+    const index = pageFlip.getCurrentPageIndex();
+    const total = pdf.numPages;
+
+    if (index <= 1) {
+      bookElement.classList.add('cover-front-flip-hiding');
+    } else if (index >= total - 2) {
+      bookElement.classList.add('cover-back-flip-hiding');
+    }
 
   }
 
 
   function showPagesUnderCover() {
 
-    bookElement.classList.remove('cover-flip-hiding');
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
 
   }
 
@@ -1200,12 +1233,10 @@
       */
       await sleepFrame();
 
-      showLoading('Préparation des premières pages…');
-
       /*
-        On prépare volontairement un bloc autour de la couverture AVANT
-        d'autoriser l'interaction. Ainsi, au premier retournement, la page
-        derrière la couverture est déjà présente et ne surgit pas après le flip.
+        Préchargement silencieux : on prépare les 4 premières pages avant
+        d'autoriser la navigation. Aucun message de préparation ne reste donc
+        affiché au milieu du lecteur.
       */
       await ensurePagesReady([0, 1, 2, 3]);
 
