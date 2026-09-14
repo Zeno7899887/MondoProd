@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V30</title>
+<title>Mondo Prod — Catalogue V31</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -67,17 +67,16 @@
   #book-area {
     position:relative;
     width:100%;
-    display:grid;
-    grid-template-columns:58px minmax(0,1160px) 58px;
-    column-gap:14px;
-    align-items:center;
+    display:flex;
     justify-content:center;
+    align-items:center;
+    padding:0 92px;
     min-height:clamp(320px, 62vw, 790px);
   }
 
   #book {
     position:relative;
-    width:100%;
+    width:min(1160px, 100%);
     max-width:1160px;
     aspect-ratio:1.41421356 / 1;
     margin:0 auto !important;
@@ -85,24 +84,19 @@
     transform-style:preserve-3d;
     background:transparent !important;
     overflow:visible;
-    justify-self:center;
   }
 
   /*
-     Le conteneur PageFlip reste centré. En mode couverture, PageFlip
-     place les pages hard en simple page ; les marges automatiques du
-     conteneur empêchent la couverture de se décaler à gauche ou à droite.
+     Le wrapper interne de PageFlip ne doit pas être déplacé :
+     c'est lui qui calcule la position exacte d'une couverture seule.
+     On ne force donc ni left/right ni un margin artificiel.
   */
+  #book .stf,
   #book .stf__parent,
   #book .stf__wrapper,
   #book .stf__block {
     margin-left:auto !important;
     margin-right:auto !important;
-  }
-
-  #book .stf__parent {
-    left:0 !important;
-    right:0 !important;
   }
 
   #book, #book .pdf-page, .book-arrow, .lang-btn {
@@ -130,24 +124,18 @@
   }
 
   .book-nav {
-    position:relative;
-    z-index:300;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    justify-content:center;
+    position:static;
+    z-index:500;
   }
 
-  .book-nav-left { justify-content:flex-end; }
-  .book-nav-right { justify-content:flex-start; }
-
-  /* Les flèches occupent leur propre colonne : aucune superposition sur les pages/corners. */
+  /* Les flèches sont placées hors de la surface du livre. */
 
   .book-arrow {
-    position:relative;
+    position:absolute;
+    top:50%;
+    z-index:500;
     width:44px;
     height:44px;
-    flex:0 0 44px;
     appearance:none;
     border:1px solid rgba(0,0,0,.10);
     border-radius:50%;
@@ -241,28 +229,24 @@
 
   @media (max-width: 900px) {
     #catalogue-reader { padding-left:8px; padding-right:8px; }
-    #book-area { grid-template-columns:48px minmax(0,1fr) 48px; column-gap:10px; min-height:0; }
-    .book-nav { gap:6px; }
-    .book-nav-left { flex-direction:column; }
-    .book-nav-right { flex-direction:column; }
+    #book-area { padding-left:70px; padding-right:70px; min-height:0; }
   }
 
   @media (max-width: 700px) {
     #catalogue-languages { gap:6px; margin-bottom:10px; }
     .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
     .lang-btn::after { font-size:10px; }
-    #book-area { grid-template-columns:42px minmax(0,1fr) 42px; column-gap:6px; }
+    #book-area { padding-left:54px; padding-right:54px; }
     #book { width:100%; max-width:470px; aspect-ratio:1 / 1.41421356; margin-left:auto !important; margin-right:auto !important; }
-    .book-nav { gap:4px; }
-    .book-arrow { width:38px; height:38px; flex-basis:38px; font-size:25px; }
+    .book-arrow { width:38px; height:38px; font-size:25px; }
     #reader-controls { margin-top:6px; }
   }
 
   @media (max-width: 430px) {
     .lang-btn { min-width:0; width:44px; padding:0; }
     .lang-btn::after { display:none; }
-    #book-area { grid-template-columns:38px minmax(0,1fr) 38px; column-gap:4px; }
-    .book-arrow { width:34px; height:34px; flex-basis:34px; font-size:22px; }
+    #book-area { padding-left:46px; padding-right:46px; }
+    .book-arrow { width:34px; height:34px; font-size:22px; }
   }
 </style>
 </head>
@@ -1266,32 +1250,52 @@
   }
 
   function warmOtherLanguages(currentLanguage) {
-    Object.keys(catalogues).forEach(function(language, position) {
+    Object.keys(catalogues).forEach(function(language) {
       if (language === currentLanguage) return;
-      setTimeout(function() {
-        getCachedPdfDocument(language).then(function(otherPdf) {
-          /* Pré-rendre uniquement la couverture des autres langues en arrière-plan.
-             Cela rend le switch visuellement quasi instantané sans charger 44 pages x 4. */
-          const cache = getLanguageImageCache(language);
-          if (cache.has(0) || !otherPdf) return;
-          const page = otherPdf.getPage(1);
-          return page.then(function(pdfPage) {
-            const baseViewport = pdfPage.getViewport({ scale: 1 });
-            const targetWidth = Math.min(2600, Math.max(1500, Math.ceil((bookElement.clientWidth || 560) * 1.7)));
-            const viewport = pdfPage.getViewport({ scale: targetWidth / baseViewport.width });
-            const canvas = document.createElement('canvas');
-            canvas.width = Math.ceil(viewport.width);
-            canvas.height = Math.ceil(viewport.height);
-            const context = canvas.getContext('2d', { alpha:false });
-            context.fillStyle = '#fff';
-            context.fillRect(0,0,canvas.width,canvas.height);
-            return pdfPage.render({canvasContext:context, viewport:viewport, intent:'display'}).promise
-              .then(function(){ return canvasToPngBlob(canvas); })
-              .then(function(blob){ cache.set(0, URL.createObjectURL(blob)); });
+
+      /* On commence immédiatement le téléchargement du PDF. */
+      getCachedPdfDocument(language).then(function(otherPdf) {
+        if (!otherPdf) return;
+
+        /* Prépare les deux premières pages en arrière-plan : après cela,
+           le changement de langue peut basculer presque immédiatement
+           sur une couverture déjà disponible. */
+        const cache = getLanguageImageCache(language);
+        const indices = [0, 1].filter(function(i){ return i < otherPdf.numPages && !cache.has(i); });
+        if (!indices.length) return;
+
+        let chain = Promise.resolve();
+        indices.forEach(function(i) {
+          chain = chain.then(function() {
+            if (cache.has(i)) return;
+            return renderLanguageImage(otherPdf, language, i);
           });
-        }).catch(function(){ /* Préchargement silencieux. */ });
-      }, 350 + position * 350);
+        });
+        return chain;
+      }).catch(function(){ /* Préchargement silencieux. */ });
     });
+  }
+
+  async function renderLanguageImage(otherPdf, language, index) {
+    const cache = getLanguageImageCache(language);
+    if (cache.has(index)) return cache.get(index);
+
+    const pdfPage = await otherPdf.getPage(index + 1);
+    const baseViewport = pdfPage.getViewport({ scale: 1 });
+    const targetWidth = Math.min(3000, Math.max(1900, Math.ceil((bookElement.clientWidth || 700) * (isMobileView() ? 3.2 : 2.0))));
+    const viewport = pdfPage.getViewport({ scale: targetWidth / baseViewport.width });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext('2d', {alpha:false});
+    if (!context) return null;
+    context.fillStyle = '#fff';
+    context.fillRect(0,0,canvas.width,canvas.height);
+    await pdfPage.render({canvasContext:context, viewport:viewport, intent:'display'}).promise;
+    const blob = await canvasToPngBlob(canvas);
+    const url = URL.createObjectURL(blob);
+    cache.set(index, url);
+    return url;
   }
 
   /* ========================================================
@@ -1412,34 +1416,102 @@
      DRAPEAUX
      ======================================================== */
 
-  languageButtons.forEach(
-    function (button) {
+  const languageClickStamp = new WeakMap();
 
-      button.addEventListener(
-        "click",
-        function (event) {
-
-          event.preventDefault();
-          event.stopPropagation();
-
-          const requestedLanguage = button.dataset.lang;
-
-          if (!catalogues[requestedLanguage]) {
-            return;
-          }
-
-          if (requestedLanguage === activeLanguage && pdf && !loadingCatalogue) {
-            return;
-          }
-
-          loadCatalogue(requestedLanguage);
-
-        }
-      );
-
+  function handleLanguageButton(button, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
     }
-  );
 
+    const now = Date.now();
+    const previousStamp = languageClickStamp.get(button) || 0;
+    if (now - previousStamp < 120) return;
+    languageClickStamp.set(button, now);
+
+    const nextLanguage = button.dataset.lang;
+    if (!catalogues[nextLanguage]) return;
+    if (nextLanguage === activeLanguage && pdf && !loadingCatalogue) return;
+
+    /* On lance le chargement dès pointerdown pour gagner le temps du click. */
+    loadCatalogue(nextLanguage);
+  }
+
+  languageButtons.forEach(function(button) {
+    button.addEventListener('pointerdown', function(event) {
+      if (event.pointerType === 'mouse' || event.pointerType === 'pen' || event.pointerType === 'touch') {
+        handleLanguageButton(button, event);
+      }
+    }, {capture:true});
+
+    button.addEventListener('click', function(event) {
+      handleLanguageButton(button, event);
+    }, {capture:true});
+  });
+
+
+  /* ========================================================
+     COINS INTERACTIFS — pont direct vers l'API utilisateur PageFlip
+     ======================================================== */
+
+  let cornerPointerActive = false;
+  let cornerPointerId = null;
+
+  function getBookPoint(event) {
+    const rect = bookElement.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top
+    };
+  }
+
+  function pointIsCorner(point) {
+    const rect = bookElement.getBoundingClientRect();
+    const corner = Math.max(58, Math.min(90, rect.width * 0.08));
+    const nearTop = point.y <= corner;
+    const nearBottom = point.y >= rect.height - corner;
+    const nearLeft = point.x <= corner;
+    const nearRight = point.x >= rect.width - corner;
+    return (nearTop || nearBottom) && (nearLeft || nearRight);
+  }
+
+  function pointerOnCorner(event) {
+    if (!pageFlip || pageFlipIsFlipping()) return;
+    if (event.target.closest && (event.target.closest('.book-arrow') || event.target.closest('.lang-btn'))) return;
+    const point = getBookPoint(event);
+    if (!pointIsCorner(point)) return;
+
+    cornerPointerActive = true;
+    cornerPointerId = event.pointerId;
+    try { bookElement.setPointerCapture(event.pointerId); } catch (e) {}
+    try { pageFlip.startUserTouch(point); } catch (e) {}
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function pointerMoveCorner(event) {
+    if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
+    const point = getBookPoint(event);
+    try { pageFlip.userMove(point, event.pointerType === 'touch'); } catch (e) {}
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function pointerUpCorner(event) {
+    if (!cornerPointerActive || event.pointerId !== cornerPointerId || !pageFlip) return;
+    const point = getBookPoint(event);
+    cornerPointerActive = false;
+    cornerPointerId = null;
+    try { pageFlip.userStop(point, false); } catch (e) {}
+    try { bookElement.releasePointerCapture(event.pointerId); } catch (e) {}
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  bookElement.addEventListener('pointerdown', pointerOnCorner, true);
+  bookElement.addEventListener('pointermove', pointerMoveCorner, true);
+  bookElement.addEventListener('pointerup', pointerUpCorner, true);
+  bookElement.addEventListener('pointercancel', pointerUpCorner, true);
 
   /* ========================================================
      FLÈCHES
