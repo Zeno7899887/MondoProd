@@ -6,12 +6,9 @@
 <title>Mondo Prod — Catalogue</title>
 
 <style>
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
-  html,
-  body {
+  html, body {
     margin: 0;
     padding: 0;
     background: transparent;
@@ -54,9 +51,7 @@
     cursor: pointer;
     opacity: .40;
     transform: scale(1);
-    transition:
-      opacity .20s ease,
-      transform .20s ease;
+    transition: opacity .20s ease, transform .20s ease;
   }
 
   .lang-btn:hover {
@@ -76,37 +71,27 @@
   #book-area {
     position: relative;
     width: 100%;
-    padding: 0 58px;
     display: flex;
     justify-content: center;
     align-items: center;
+    padding: 0 58px;
   }
 
   /*
-    Le livre garde toujours la même boîte géométrique.
-    PageFlip gère le passage :
-      couverture = 1 page centrée
-      intérieur  = 2 pages
-      dernière couverture = 1 page centrée
+    IMPORTANT :
+    le livre est transparent autour de ses pages.
+    Cela permet de voir le fond du site lorsqu'une moitié
+    du livre ne contient aucune page.
   */
-
   #book {
     position: relative;
     width: min(1120px, 100%);
+    max-width: 1120px;
     aspect-ratio: 1.41421356 / 1;
     margin: 0 auto;
     transform: translateZ(0);
-    overflow: visible;
-  }
-
-  #book canvas {
-    display: block;
-  }
-
-  /* Évite une bordure ajoutée par le thème du site */
-  #book,
-  #book * {
-    border: 0;
+    transform-style: preserve-3d;
+    background: transparent !important;
   }
 
   /* =========================================================
@@ -157,6 +142,12 @@
     right: 3px;
   }
 
+  /*
+    Les flèches restent visibles même sur les couvertures.
+    La désactivation dépend uniquement de la première/dernière
+    page, pas de l'orientation.
+  */
+
   /* =========================================================
      CHARGEMENT
      ========================================================= */
@@ -164,17 +155,16 @@
   #loading {
     position: absolute;
     inset: 0;
+    z-index: 90;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    z-index: 90;
-
     pointer-events: none;
 
-    font-size: 14px;
     color: rgba(0,0,0,.55);
+    font-size: 14px;
 
     opacity: 1;
     transition: opacity .25s ease;
@@ -191,12 +181,13 @@
     margin: 16px auto;
 
     color: #666;
+
     font-size: 14px;
     line-height: 1.45;
   }
 
   /* =========================================================
-     CONTRÔLES
+     CONTROLES
      ========================================================= */
 
   #reader-controls {
@@ -224,9 +215,7 @@
 
     border-radius: 8px;
 
-    transition:
-      background .18s ease,
-      transform .18s ease;
+    transition: background .18s ease;
   }
 
   #reader-controls button:hover {
@@ -234,33 +223,13 @@
   }
 
   #page-number {
-    min-width: 100px;
+    min-width: 104px;
 
     font-size: 14px;
 
     font-variant-numeric: tabular-nums;
 
     text-align: center;
-  }
-
-  /* =========================================================
-     PLEIN ÉCRAN
-     ========================================================= */
-
-  #catalogue-reader:fullscreen {
-    width: 100vw;
-    max-width: none;
-    height: 100vh;
-
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-
-    background: #fff;
-  }
-
-  #catalogue-reader:fullscreen #book-area {
-    flex: 0 0 auto;
   }
 
   /* =========================================================
@@ -283,8 +252,9 @@
     }
 
     /*
-      En mobile PageFlip passe en portrait :
-      une page à la fois, y compris les couvertures.
+      Sur mobile, PageFlip utilise le mode portrait :
+      couverture seule au centre,
+      pages intérieures une par une.
     */
     #book {
       width: min(92vw, 470px);
@@ -306,10 +276,28 @@
       right: 1px;
     }
 
-    #reader-controls {
-      margin-top: 11px;
-    }
   }
+
+  /* =========================================================
+     PLEIN ÉCRAN
+     ========================================================= */
+
+  #catalogue-reader:fullscreen {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+
+    background: #fff;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  #catalogue-reader:fullscreen #book-area {
+    flex: 0 0 auto;
+  }
+
 </style>
 </head>
 
@@ -317,7 +305,12 @@
 
 <div id="catalogue-reader">
 
-  <div id="catalogue-languages" aria-label="Choisir la langue du catalogue">
+  <!-- =======================================================
+       DRAPEAUX
+       ======================================================= -->
+
+  <div id="catalogue-languages"
+       aria-label="Choisir la langue du catalogue">
 
     <button
       class="lang-btn"
@@ -354,6 +347,10 @@
   </div>
 
 
+  <!-- =======================================================
+       LIVRE
+       ======================================================= -->
+
   <div id="book-area">
 
     <button
@@ -383,6 +380,10 @@
 
   </div>
 
+
+  <!-- =======================================================
+       CONTRÔLES
+       ======================================================= -->
 
   <div id="reader-controls">
 
@@ -427,7 +428,7 @@
 
 
 <!-- =========================================================
-     STPAGEFLIP
+     PAGEFLIP
      ========================================================= -->
 
 <script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
@@ -449,7 +450,7 @@
 
 
   /* ========================================================
-     URLS EXACTES GITHUB PAGES
+     URLS EXACTES
      ======================================================== */
 
   const catalogues = {
@@ -491,14 +492,14 @@
   const nextButton =
     document.getElementById("next-page");
 
+  const fullscreenButton =
+    document.getElementById("fullscreen");
+
   const zoomInButton =
     document.getElementById("zoom-in");
 
   const zoomOutButton =
     document.getElementById("zoom-out");
-
-  const fullscreenButton =
-    document.getElementById("fullscreen");
 
   const languageButtons =
     Array.from(
@@ -516,36 +517,25 @@
 
   let activeLanguage = "fr";
 
-  let objectUrls = [];
-
   let loadingCatalogue = false;
-
-  let zoom = 1;
 
 
   /* ========================================================
-     AFFICHAGE
+     UTILITAIRES
      ======================================================== */
 
-  function showError(message) {
+  function setActiveLanguage(language) {
 
-    status.textContent =
-      message;
+    languageButtons.forEach(
+      function (button) {
 
-    status.style.display =
-      "block";
+        button.classList.toggle(
+          "active",
+          button.dataset.lang === language
+        );
 
-    loading.classList.add(
-      "hidden"
+      }
     );
-
-  }
-
-
-  function hideError() {
-
-    status.style.display =
-      "none";
 
   }
 
@@ -571,32 +561,35 @@
   }
 
 
-  /* ========================================================
-     LANGUE
-     ======================================================== */
+  function showError(message) {
 
-  function setActiveLanguage(
-    language
-  ) {
+    status.textContent =
+      message;
 
-    languageButtons.forEach(
-      function (button) {
+    status.style.display =
+      "block";
 
-        button.classList.toggle(
-          "active",
-          button.dataset.lang === language
-        );
-
-      }
-    );
+    hideLoading();
 
   }
 
 
+  function hideError() {
+
+    status.style.display =
+      "none";
+
+  }
+
+
+  /* ========================================================
+     LANGUE DU SITE
+     ======================================================== */
+
   function detectLanguage() {
 
     /*
-      1. ?lang=fr
+      1 — ?lang=fr
     */
 
     try {
@@ -606,7 +599,7 @@
           window.location.search
         );
 
-      const lang =
+      const queryLang =
         (
           params.get("lang") ||
           ""
@@ -616,10 +609,10 @@
 
 
       if (
-        catalogues[lang]
+        catalogues[queryLang]
       ) {
 
-        return lang;
+        return queryLang;
 
       }
 
@@ -627,32 +620,7 @@
 
 
     /*
-      2. Langue envoyée explicitement
-         par la page parent si elle en définit une.
-    */
-
-    try {
-
-      if (
-        window.SITE_LANGUAGE &&
-        catalogues[
-          String(
-            window.SITE_LANGUAGE
-          ).toLowerCase()
-        ]
-      ) {
-
-        return String(
-          window.SITE_LANGUAGE
-        ).toLowerCase();
-
-      }
-
-    } catch (error) {}
-
-
-    /*
-      3. Langue HTML
+      2 — Langue du document.
     */
 
     const htmlLang =
@@ -674,43 +642,12 @@
 
 
     /*
-      4. Referrer
+      3 — Langue du navigateur.
     */
 
     try {
 
-      const ref =
-        (
-          document.referrer ||
-          ""
-        ).toLowerCase();
-
-
-      const match =
-        ref.match(
-          /(?:^|[\/?&_=.-])(fr|en|it|es)(?:[\/?&_=.-]|$)/
-        );
-
-
-      if (
-        match &&
-        catalogues[match[1]]
-      ) {
-
-        return match[1];
-
-      }
-
-    } catch (error) {}
-
-
-    /*
-      5. Navigateur
-    */
-
-    try {
-
-      const browser =
+      const browserLang =
         (
           navigator.language ||
           ""
@@ -720,10 +657,10 @@
 
 
       if (
-        catalogues[browser]
+        catalogues[browserLang]
       ) {
 
-        return browser;
+        return browserLang;
 
       }
 
@@ -736,37 +673,41 @@
 
 
   /* ========================================================
-     PRÉPARER UNE IMAGE DE PAGE
+     RENDRE UNE PAGE PDF HAUTE RÉSOLUTION
      ======================================================== */
 
-  async function renderPdfPageToImage(
-    pageNumber
+  async function renderPageToImage(
+    pageIndex
   ) {
 
     const page =
       await pdf.getPage(
-        pageNumber
+        pageIndex
       );
 
 
-    const base =
+    const baseViewport =
       page.getViewport({
         scale: 1
       });
 
 
     /*
-      Résolution assez élevée pour un affichage
-      net sur desktop et Retina.
+      Résolution volontairement élevée :
+      les images restent nettes pendant le mouvement
+      de la page et sur les écrans Retina.
+
+      1600 px de largeur est largement suffisant
+      pour une page affichée dans la liseuse.
     */
 
     const targetWidth =
-      1200;
+      1600;
 
 
     const scale =
       targetWidth /
-      base.width;
+      baseViewport.width;
 
 
     const viewport =
@@ -802,8 +743,7 @@
 
 
     context.fillStyle =
-      "#fff";
-
+      "#ffffff";
 
     context.fillRect(
       0,
@@ -822,15 +762,18 @@
         viewport,
 
       intent:
-        "display"
+        "display",
+
+      renderInteractiveForms:
+        true
 
     }).promise;
 
 
     /*
-      WebP presque sans perte.
-      Cela évite les gros JPEG flous pendant
-      l'animation 3D.
+      WebP quasiment sans perte.
+      Cela donne un meilleur compromis entre
+      netteté et mémoire que JPEG.
     */
 
     const blob =
@@ -850,8 +793,8 @@
     if (!blob) {
 
       throw new Error(
-        "Impossible de convertir la page " +
-        pageNumber
+        "Impossible de préparer la page " +
+        pageIndex
       );
 
     }
@@ -863,46 +806,20 @@
       );
 
 
-    objectUrls.push(
-      url
-    );
-
-
     return url;
 
   }
 
 
   /* ========================================================
-     NETTOYAGE
+     LIBÉRER LES URLS
      ======================================================== */
 
-  function destroyBook() {
+  function revokeImages(
+    images
+  ) {
 
-    if (
-      pageFlip
-    ) {
-
-      try {
-
-        pageFlip.destroy();
-
-      } catch (error) {
-
-        console.warn(
-          "PageFlip destroy:",
-          error
-        );
-
-      }
-
-    }
-
-
-    pageFlip = null;
-
-
-    objectUrls.forEach(
+    images.forEach(
       function (url) {
 
         try {
@@ -916,18 +833,132 @@
       }
     );
 
+  }
 
-    objectUrls = [];
+
+  /* ========================================================
+     CRÉER UNE VRAIE LISEUSE
+     ======================================================== */
+
+  function createBook(
+    images
+  ) {
+
+    /*
+      Le livre utilise le système natif de PageFlip.
+
+      showCover:true :
+        - page 1 = couverture seule, centrée
+        - pages intérieures = double page
+        - dernière page = couverture seule, centrée
+
+      usePortrait:true :
+        - mobile = page seule
+        - desktop = double page
+
+      La transition est donc gérée par PageFlip
+      comme une vraie feuille accrochée à sa reliure.
+    */
+
+    pageFlip =
+      new St.PageFlip(
+        bookElement,
+        {
+
+          width: 760,
+
+          height: 1075,
+
+          size: "stretch",
+
+          minWidth: 250,
+
+          maxWidth: 1800,
+
+          minHeight: 350,
+
+          maxHeight: 2550,
+
+          /*
+            Animation réaliste :
+            un peu plus lente qu'un simple slide.
+          */
+
+          flippingTime: 950,
+
+          /*
+            Première + dernière pages seules.
+          */
+
+          showCover: true,
+
+          /*
+            Ombres.
+          */
+
+          drawShadow: true,
+
+          maxShadowOpacity: .78,
+
+          /*
+            Coins.
+          */
+
+          showPageCorners: true,
+
+          /*
+            Navigation tactile/souris.
+          */
+
+          useMouseEvents: true,
+
+          swipeDistance: 25,
+
+          clickEventForward: false,
+
+          mobileScrollSupport: true,
+
+          /*
+            Responsive :
+            double page desktop,
+            page seule mobile.
+          */
+
+          usePortrait: true,
+
+          startPage: 0,
+
+          startZIndex: 20,
+
+          autoSize: false
+
+        }
+      );
 
 
-    bookElement.innerHTML =
-      "";
+    pageFlip.loadFromImages(
+      images
+    );
+
+
+    pageFlip.turnToPage(
+      0
+    );
+
+
+    /*
+      Mise à jour immédiate.
+    */
+
+    requestAnimationFrame(
+      updateCounter
+    );
 
   }
 
 
   /* ========================================================
-     CALCUL DU COMPTEUR
+     COMPTEUR
      ======================================================== */
 
   function updateCounter() {
@@ -942,7 +973,7 @@
     }
 
 
-    const currentIndex =
+    const index =
       pageFlip.getCurrentPageIndex();
 
 
@@ -951,22 +982,25 @@
 
 
     /*
-      Avec showCover :
-        1re page = couverture seule
-        pages intérieures = double page
-        dernière page = couverture seule
+      Première couverture.
     */
 
     if (
-      currentIndex === 0
+      index === 0
     ) {
 
       pageNumber.textContent =
         "1 / " +
         total;
 
-    } else if (
-      currentIndex === total - 1
+    }
+
+    /*
+      Dernière couverture.
+    */
+
+    else if (
+      index === total - 1
     ) {
 
       pageNumber.textContent =
@@ -974,203 +1008,54 @@
         " / " +
         total;
 
-    } else {
+    }
 
-      const left =
-        currentIndex % 2 === 0
-          ? currentIndex + 1
-          : currentIndex;
+    /*
+      Pages intérieures.
+    */
 
-      const right =
+    else {
+
+      const first =
+        index + 1;
+
+
+      const second =
         Math.min(
-          left + 1,
+          index + 2,
           total
         );
 
 
+      /*
+        En double page on affiche
+        "2–3 / 44", "4–5 / 44", etc.
+      */
+
       pageNumber.textContent =
-        left +
+        first +
         "–" +
-        right +
+        second +
         " / " +
         total;
 
     }
 
 
-    prevButton.disabled =
-      currentIndex <= 0;
+    /*
+      Flèche tout devant.
+    */
 
+    prevButton.disabled =
+      index <= 0;
+
+
+    /*
+      Flèche tout derrière.
+    */
 
     nextButton.disabled =
-      currentIndex >= total - 1;
-
-  }
-
-
-  /* ========================================================
-     CRÉER LA LISEUSE
-     ======================================================== */
-
-  function createBook(
-    images
-  ) {
-
-    const width =
-      760;
-
-    const height =
-      1075;
-
-
-    /*
-      PARAMÈTRES CLÉS :
-
-      showCover: true
-      ----------------
-      La première et la dernière page
-      sont traitées comme des couvertures.
-      Elles sont donc seules et centrées.
-
-      usePortrait:
-      ----------------
-      Sur petit écran : portrait.
-      Sur grand écran : double page intérieure.
-
-      size: stretch
-      ----------------
-      Le livre garde sa place et ses dimensions
-      pendant toute l'animation.
-    */
-
-    pageFlip =
-      new St.PageFlip(
-        bookElement,
-        {
-
-          width:
-            width,
-
-          height:
-            height,
-
-          size:
-            "stretch",
-
-          minWidth:
-            260,
-
-          maxWidth:
-            1800,
-
-          minHeight:
-            370,
-
-          maxHeight:
-            2550,
-
-          /*
-            Vraie animation de livre.
-          */
-
-          flippingTime:
-            950,
-
-          /*
-            Première et dernière pages
-            = couvertures seules.
-          */
-
-          showCover:
-            true,
-
-          /*
-            Ombres réalistes.
-          */
-
-          drawShadow:
-            true,
-
-          maxShadowOpacity:
-            .78,
-
-          /*
-            Coins manipulables.
-          */
-
-          showPageCorners:
-            true,
-
-          /*
-            Le flip peut être effectué
-            avec souris/tactile.
-          */
-
-          useMouseEvents:
-            true,
-
-          swipeDistance:
-            25,
-
-          clickEventForward:
-            false,
-
-          mobileScrollSupport:
-            true,
-
-          /*
-            Le livre change automatiquement
-            en affichage portrait sur mobile.
-          */
-
-          usePortrait:
-            true,
-
-          startPage:
-            0,
-
-          startZIndex:
-            20,
-
-          autoSize:
-            false
-
-        }
-      );
-
-
-    /*
-      IMPORTANT :
-
-      loadFromImages + showCover:true.
-
-      PageFlip gère lui-même :
-        couverture seule
-        -> double page
-        -> couverture seule
-
-      pendant le même flip.
-    */
-
-    pageFlip.loadFromImages(
-      images
-    );
-
-
-    /*
-      On commence toujours sur la couverture.
-    */
-
-    pageFlip.turnToPage(
-      0
-    );
-
-
-    /*
-      Compteur.
-    */
-
-    updateCounter();
+      index >= total - 1;
 
   }
 
@@ -1179,7 +1064,7 @@
      ÉVÉNEMENTS PAGEFLIP
      ======================================================== */
 
-  function attachEvents() {
+  function attachPageFlipEvents() {
 
     if (
       !pageFlip
@@ -1254,17 +1139,36 @@
 
     hideError();
 
-
     showLoading();
+
+
+    let images = [];
 
 
     try {
 
-      destroyBook();
+      /*
+        Détruire le livre précédent
+        avant de commencer.
+      */
+
+      if (
+        pageFlip
+      ) {
+
+        try {
+
+          pageFlip.destroy();
+
+        } catch (error) {}
+
+        pageFlip = null;
+
+      }
 
 
       /*
-        URL ABSOLUE EXACTE.
+        URL exacte GitHub Pages.
       */
 
       const response =
@@ -1288,35 +1192,29 @@
       }
 
 
-      const pdfData =
+      const data =
         await response.arrayBuffer();
 
 
       pdf =
-        await pdfjsLib
-          .getDocument({
-            data: pdfData
-          })
-          .promise;
+        await pdfjsLib.getDocument({
+          data: data
+        }).promise;
 
 
       /*
-        Préparation des pages.
+        Préparer toutes les pages.
       */
 
-      const images =
-        [];
-
-
       for (
-        let page = 1;
-        page <= pdf.numPages;
-        page++
+        let i = 1;
+        i <= pdf.numPages;
+        i++
       ) {
 
         showLoading(
           "Préparation du catalogue " +
-          page +
+          i +
           " / " +
           pdf.numPages +
           "…"
@@ -1324,8 +1222,8 @@
 
 
         images.push(
-          await renderPdfPageToImage(
-            page
+          await renderPageToImage(
+            i
           )
         );
 
@@ -1333,7 +1231,7 @@
 
 
       /*
-        Création du véritable livre.
+        Création de la liseuse.
       */
 
       createBook(
@@ -1341,11 +1239,7 @@
       );
 
 
-      /*
-        Événements.
-      */
-
-      attachEvents();
+      attachPageFlipEvents();
 
 
       hideLoading();
@@ -1354,8 +1248,18 @@
     } catch (error) {
 
       console.error(
-        "Erreur liseuse :",
+        "Erreur catalogue :",
         error
+      );
+
+
+      /*
+        Si la construction a échoué,
+        les object URLs déjà créées sont libérées.
+      */
+
+      revokeImages(
+        images
       );
 
 
@@ -1381,7 +1285,29 @@
 
 
   /* ========================================================
-     NAVIGATION
+     DRAPEAUX
+     ======================================================== */
+
+  languageButtons.forEach(
+    function (button) {
+
+      button.addEventListener(
+        "click",
+        function () {
+
+          loadCatalogue(
+            button.dataset.lang
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  /* ========================================================
+     FLÈCHES
      ======================================================== */
 
   prevButton.addEventListener(
@@ -1424,21 +1350,25 @@
      ZOOM
      ======================================================== */
 
+  let readerScale = 1;
+
+
   zoomInButton.addEventListener(
     "click",
     function () {
 
-      zoom =
+      readerScale =
         Math.min(
-          1.16,
-          zoom + .04
+          1.14,
+          readerScale + .04
         );
 
 
       bookElement.style.transform =
         "translateZ(0) scale(" +
-        zoom +
+        readerScale +
         ")";
+
 
       bookElement.style.transformOrigin =
         "center center";
@@ -1451,17 +1381,18 @@
     "click",
     function () {
 
-      zoom =
+      readerScale =
         Math.max(
           .90,
-          zoom - .04
+          readerScale - .04
         );
 
 
       bookElement.style.transform =
         "translateZ(0) scale(" +
-        zoom +
+        readerScale +
         ")";
+
 
       bookElement.style.transformOrigin =
         "center center";
@@ -1527,8 +1458,7 @@
 
 
       if (
-        event.key ===
-        "ArrowRight"
+        event.key === "ArrowRight"
       ) {
 
         pageFlip.flipNext(
@@ -1539,8 +1469,7 @@
 
 
       if (
-        event.key ===
-        "ArrowLeft"
+        event.key === "ArrowLeft"
       ) {
 
         pageFlip.flipPrev(
@@ -1554,129 +1483,7 @@
 
 
   /* ========================================================
-     DRAPEAUX
-     ======================================================== */
-
-  languageButtons.forEach(
-    function (button) {
-
-      button.addEventListener(
-        "click",
-        function () {
-
-          const language =
-            button.dataset.lang;
-
-
-          if (
-            language ===
-            activeLanguage
-          ) {
-
-            return;
-
-          }
-
-
-          loadCatalogue(
-            language
-          );
-
-        }
-      );
-
-    }
-  );
-
-
-  /* ========================================================
-     SWIPE
-     ======================================================== */
-
-  let touchStartX = 0;
-  let touchStartY = 0;
-
-
-  bookElement.addEventListener(
-    "touchstart",
-    function (event) {
-
-      const touch =
-        event.changedTouches[0];
-
-      touchStartX =
-        touch.screenX;
-
-      touchStartY =
-        touch.screenY;
-
-    },
-    {
-      passive: true
-    }
-  );
-
-
-  bookElement.addEventListener(
-    "touchend",
-    function (event) {
-
-      if (
-        !pageFlip
-      ) {
-
-        return;
-
-      }
-
-
-      const touch =
-        event.changedTouches[0];
-
-      const dx =
-        touchStartX -
-        touch.screenX;
-
-      const dy =
-        touchStartY -
-        touch.screenY;
-
-
-      if (
-        Math.abs(dx) < 45 ||
-        Math.abs(dx) < Math.abs(dy)
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        dx > 0
-      ) {
-
-        pageFlip.flipNext(
-          "bottom"
-        );
-
-      } else {
-
-        pageFlip.flipPrev(
-          "bottom"
-        );
-
-      }
-
-    },
-    {
-      passive: true
-    }
-  );
-
-
-  /* ========================================================
-     LANGUE AUTOMATIQUE + DÉMARRAGE
+     DÉMARRAGE
      ======================================================== */
 
   loadCatalogue(
