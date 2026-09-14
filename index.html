@@ -519,7 +519,7 @@
 
   /* ========================================================
      ÉTAT
-     ========================================================
+     ======================================================== */
 
   let pageFlip = null;
 
@@ -1729,7 +1729,10 @@
      DÉMARRAGE
      ======================================================== */
 
-  const initialLanguage = detectLanguage();
+  /* Le catalogue par défaut doit toujours être le Français.
+     Les autres langues restent disponibles via les boutons. */
+  const initialLanguage = "fr";
+  setActiveLanguage(initialLanguage);
   loadCatalogue(initialLanguage);
 
   /* Le préchargement des autres langues démarre sans bloquer l'ouverture
