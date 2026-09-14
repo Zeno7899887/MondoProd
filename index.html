@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V20</title>
+<title>Mondo Prod — Catalogue V21</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -656,7 +656,8 @@
   let renderGeneration = 0;
 
   const renderedPages = new Map();
-  const inFlightRenders = new Map();
+  const renderingPages = new Map();
+  let activeLoadingTask = null;
 
 
   function isMobileView() {
@@ -696,21 +697,12 @@
       return true;
     }
 
-    /*
-      Plusieurs fonctions peuvent demander la même page presque au
-      même moment (createBook, preloadAround, resize, changement de
-      langue). PDF.js interdit deux render() simultanés sur le même
-      canvas. On partage donc la même Promise pour chaque couple
-      génération/page au lieu de lancer plusieurs rendus concurrents.
-    */
-    const renderKey = generation + ':' + index;
-    const existingRender = inFlightRenders.get(renderKey);
-
-    if (existingRender) {
-      return existingRender;
+    const existingTask = renderingPages.get(index);
+    if (existingTask && existingTask.generation === generation) {
+      return existingTask.promise;
     }
 
-    const renderPromise = (async function () {
+    const promise = (async function () {
 
       const pageElement =
         document.querySelector(
@@ -728,13 +720,10 @@
         return false;
       }
 
-      /* Capture le PDF/canvas réellement utilisés par ce rendu. */
-      const pdfForRender = pdf;
+      const pdfAtStart = pdf;
+      const page = await pdfAtStart.getPage(index + 1);
 
-      const page =
-        await pdfForRender.getPage(index + 1);
-
-      if (generation !== renderGeneration || pdf !== pdfForRender) {
+      if (generation !== renderGeneration || pdf !== pdfAtStart) {
         return false;
       }
 
@@ -750,24 +739,6 @@
       const viewport =
         page.getViewport({ scale: scale });
 
-      /*
-        Vérifie encore le canvas juste avant render(). Si une nouvelle
-        liseuse a été créée entre-temps, on abandonne ce rendu ancien.
-      */
-      const currentPageElement =
-        document.querySelector(
-          '#book .pdf-page[data-page-index="' + index + '"]'
-        );
-
-      const currentCanvas =
-        currentPageElement
-          ? currentPageElement.querySelector('canvas')
-          : null;
-
-      if (currentCanvas !== canvas || generation !== renderGeneration || pdf !== pdfForRender) {
-        return false;
-      }
-
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
 
@@ -779,30 +750,25 @@
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.restore();
 
-      await page.render({
+      const renderTask = page.render({
         canvasContext: context,
         viewport: viewport,
         intent: 'display',
         renderInteractiveForms: true
-      }).promise;
+      });
 
-      if (generation !== renderGeneration || pdf !== pdfForRender) {
-        return false;
+      try {
+        await renderTask.promise;
+      } catch (error) {
+        // A cancelled/obsolete render is expected when changing language.
+        if (generation !== renderGeneration || pdf !== pdfAtStart) {
+          try { renderTask.cancel(); } catch (cancelError) {}
+          return false;
+        }
+        throw error;
       }
 
-      /* Ne marque la page comme prête que si ce canvas est toujours
-         celui affiché par la liseuse courante. */
-      const finalPageElement =
-        document.querySelector(
-          '#book .pdf-page[data-page-index="' + index + '"]'
-        );
-
-      const finalCanvas =
-        finalPageElement
-          ? finalPageElement.querySelector('canvas')
-          : null;
-
-      if (finalCanvas !== canvas) {
+      if (generation !== renderGeneration || pdf !== pdfAtStart) {
         return false;
       }
 
@@ -811,13 +777,17 @@
 
     })();
 
-    inFlightRenders.set(renderKey, renderPromise);
+    renderingPages.set(index, {
+      generation: generation,
+      promise: promise
+    });
 
     try {
-      return await renderPromise;
+      return await promise;
     } finally {
-      if (inFlightRenders.get(renderKey) === renderPromise) {
-        inFlightRenders.delete(renderKey);
+      const current = renderingPages.get(index);
+      if (current && current.promise === promise) {
+        renderingPages.delete(index);
       }
     }
 
@@ -848,11 +818,8 @@
   function clearRenderedPages() {
 
     renderedPages.clear();
-
-    /* Les anciennes Promises restent autorisées à se terminer, mais ne
-       peuvent plus être considérées comme un rendu actif de la nouvelle
-       génération. */
-    inFlightRenders.clear();
+    // Promesses de rendu obsolètes sont invalidées par renderGeneration.
+    renderingPages.clear();
 
   }
 
@@ -1208,6 +1175,10 @@
     activeLoadRequestId = requestId;
     pendingNavigation = null;
 
+    // Invalide immédiatement tous les rendus de l'ancien catalogue.
+    renderGeneration++;
+    const thisRenderGeneration = renderGeneration;
+
     activeLanguage = language;
     document.documentElement.dataset.catalogueReady = "false";
     setActiveLanguage(language);
@@ -1217,48 +1188,53 @@
 
     try {
 
+      // Stoppe proprement le chargement PDF précédent s'il existe encore.
+      if (activeLoadingTask) {
+        try { activeLoadingTask.destroy(); } catch (error) {}
+        activeLoadingTask = null;
+      }
+
       if (pageFlip) {
         try { pageFlip.destroy(); } catch (error) {}
         pageFlip = null;
       }
 
-      /* Vider immédiatement l'ancien livre pour éviter qu'un clic
-         sur une autre langue semble ne rien faire. */
+      // Vider immédiatement l'ancien livre.
       bookElement.innerHTML = "";
       pdf = null;
-      clearRenderedPages();
+      renderedPages.clear();
+      renderingPages.clear();
 
-      /*
-        IMPORTANT : on charge directement l'URL GitHub Pages avec PDF.js.
-        On évite fetch()+arrayBuffer() et le paramètre ?v=... qui peuvent
-        provoquer des problèmes de cache/CORS selon l'hébergement du site.
-      */
       const pdfUrl = catalogues[language];
 
+      // URL distincte + paramètre de cache unique pour éviter qu'un CDN
+      // conserve l'ancien document après un changement de langue.
+      const cacheBust = "?catalogueLang=" + encodeURIComponent(language) + "&r=" + requestId;
+
       const loadingTask = pdfjsLib.getDocument({
-        url: pdfUrl,
+        url: pdfUrl + cacheBust,
         disableAutoFetch: false,
         disableStream: false,
         disableRange: false,
         cMapPacked: true
       });
 
+      activeLoadingTask = loadingTask;
+
       const loadedPdf = await loadingTask.promise;
 
-      if (requestId !== activeLoadRequestId) {
+      if (activeLoadingTask === loadingTask) {
+        activeLoadingTask = null;
+      }
+
+      if (requestId !== activeLoadRequestId || renderGeneration !== thisRenderGeneration) {
         try { await loadedPdf.destroy(); } catch (error) {}
         return;
       }
 
-      if (requestId !== activeLoadRequestId) {
-        try { loadedPdf.destroy(); } catch (error) {}
-        return;
-      }
-
       pdf = loadedPdf;
-      renderGeneration++;
       clearRenderedPages();
-      const generation = renderGeneration;
+      const generation = thisRenderGeneration;
 
       createBook();
       attachPageFlipEvents();
@@ -1283,23 +1259,6 @@
     } catch (error) {
 
       if (requestId !== activeLoadRequestId) return;
-
-      renderGeneration++;
-      pendingNavigation = null;
-
-      if (pageFlip) {
-        try { pageFlip.destroy(); } catch (destroyError) {}
-        pageFlip = null;
-      }
-
-      /* Une erreur de rendu ne doit pas laisser l'ancien PDF en mémoire
-         et empêcher de recliquer sur le même drapeau. */
-      if (pdf) {
-        try { pdf.destroy(); } catch (destroyError) {}
-      }
-      pdf = null;
-      bookElement.innerHTML = "";
-      clearRenderedPages();
 
       console.error("Erreur catalogue :", error);
 
