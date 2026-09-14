@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V27</title>
+<title>Mondo Prod — Catalogue V28</title>
 
 <style>
   * { box-sizing: border-box; }
@@ -1081,36 +1081,6 @@
      ÉVÉNEMENTS PAGEFLIP
      ======================================================== */
 
-  function attachPageFlipEvents() {
-
-    if (!pageFlip) return;
-
-    pageFlip.on('flip', function() {
-      updateCounter();
-      preloadAround(pageFlip.getCurrentPageIndex());
-    });
-
-    pageFlip.on('changeState', function(event) {
-      const state = event && event.data ? String(event.data) : '';
-      const index = pageFlip.getCurrentPageIndex();
-
-      if (state === 'read') {
-        updateCounter();
-        preloadAround(index);
-        flushPendingNavigation();
-        return;
-      }
-
-      updateCounter();
-    });
-
-    pageFlip.on('changeOrientation', function() {
-      updateCounter();
-      resetRenderState();
-      preloadAround(pageFlip.getCurrentPageIndex());
-    });
-  }
-
   /* Navigation robustesse : une commande demandée pendant une
      animation est mémorisée et exécutée dès que PageFlip redevient
      disponible. La dernière commande gagne, ce qui évite tout blocage. */
@@ -1155,6 +1125,32 @@
         console.warn("Navigation PageFlip :", error);
       }
     });
+  }
+
+  function hidePagesUnderCover() {
+
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
+
+    if (!pageFlip || !pdf) return;
+
+    const index = pageFlip.getCurrentPageIndex();
+    const total = pdf.numPages;
+
+    if (index <= 1) {
+      bookElement.classList.add('cover-front-flip-hiding');
+    } else if (index >= total - 2) {
+      bookElement.classList.add('cover-back-flip-hiding');
+    }
+  }
+
+  function showPagesUnderCover() {
+    bookElement.classList.remove(
+      'cover-front-flip-hiding',
+      'cover-back-flip-hiding'
+    );
   }
 
   function attachPageFlipEvents() {
