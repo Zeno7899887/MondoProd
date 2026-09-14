@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V12</title>
-<meta name="catalogue-build" content="V12-2026-09-14">
+<title>Mondo Prod — Catalogue V13</title>
+<meta name="catalogue-build" content="V13-2026-09-14">
 
 <style>
   * {
@@ -548,6 +548,9 @@
      ELEMENTS
      ======================================================== */
 
+  const reader =
+    document.getElementById("catalogue-reader");
+
   const stage =
     document.getElementById("book-stage");
 
@@ -612,6 +615,19 @@
     Array.from(
       document.querySelectorAll(".lang-btn")
     );
+
+
+  /* ========================================================
+     OUTILS RESPONSIVE
+     ======================================================== */
+
+  function isMobile() {
+
+    return window.matchMedia(
+      "(max-width: 700px)"
+    ).matches;
+
+  }
 
 
   /* ========================================================
