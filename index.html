@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue</title>
+<title>Mondo Prod — Catalogue V11</title>
 
 <style>
   * {
@@ -514,6 +514,13 @@
 
 
 <script>
+/*
+  Compatibility guard:
+  a previous cached version of this page used currentRenderToken.
+  Defining it globally makes that obsolete reference harmless as well.
+*/
+var currentRenderToken = 0;
+
 (function () {
 
   "use strict";
