@@ -255,6 +255,41 @@
   }
 
   @media (max-width: 700px) {
+    #book {
+      width: min(100%, 760px);
+      max-width: 760px;
+      height: auto;
+      aspect-ratio: auto;
+      margin: 0 auto !important;
+      transform: none !important;
+    }
+    #book.mobile-reader {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      width:100%;
+      height:auto;
+      overflow:visible;
+    }
+    #book.mobile-reader .pdf-page {
+      position:relative;
+      width:100%;
+      height:auto;
+      aspect-ratio: 1 / 1.41421356;
+      flex:0 0 auto;
+      box-shadow:0 1px 8px rgba(0,0,0,.10);
+    }
+    #book.mobile-reader .pdf-page img {
+      width:100%;
+      height:100%;
+      object-fit:fill;
+    }
+    #book.mobile-reader .pdf-page[data-density="hard"] {
+      box-shadow:0 1px 8px rgba(0,0,0,.10);
+    }
+    #corner-layer { display:none !important; }
+    #book-area { padding:0 8px; align-items:flex-start; }
+
     #catalogue-languages { gap:6px; margin-bottom:10px; }
     .lang-btn { min-width:58px; height:34px; padding:0 8px; font-size:16px; gap:5px; }
     .lang-btn::after { font-size:10px; }
@@ -977,6 +1012,19 @@
 
     }
 
+    if (isMobileView()) {
+      pageFlip = null;
+      bookElement.classList.add('mobile-reader');
+      mobileCurrentPage = 0;
+      setupMobileReader(pageElements);
+      requestAnimationFrame(function () {
+        updateMobileCounter();
+      });
+      return;
+    }
+
+    bookElement.classList.remove('mobile-reader');
+
     pageFlip =
       new St.PageFlip(
         bookElement,
@@ -998,7 +1046,7 @@
           clickEventForward: true,
           disableFlipByClick: true,
           mobileScrollSupport: true,
-          usePortrait: isMobileView(),
+          usePortrait: false,
           startPage: 0,
           startZIndex: 20,
           autoSize: false
@@ -1013,6 +1061,52 @@
       updateCounter();
     });
 
+  }
+
+  let mobileCurrentPage = 0;
+  let mobileObserver = null;
+
+  function updateMobileCounter() {
+    if (!pdf) return;
+    const total = pdf.numPages;
+    const index = Math.max(0, Math.min(total - 1, mobileCurrentPage));
+    pageNumber.textContent = (index + 1) + " / " + total;
+    firstButton.disabled = index <= 0;
+    prevButton.disabled = index <= 0;
+    nextButton.disabled = index >= total - 1;
+    lastButton.disabled = index >= total - 1;
+  }
+
+  function goToMobilePage(index) {
+    if (!pdf) return;
+    const target = Math.max(0, Math.min(pdf.numPages - 1, index));
+    const page = document.querySelector('#book .pdf-page[data-page-index="' + target + '"]');
+    if (!page) return;
+    mobileCurrentPage = target;
+    ensurePagesReady([target - 1, target, target + 1]).then(function() {
+      page.scrollIntoView({ behavior: 'auto', block: 'start' });
+      updateMobileCounter();
+    });
+  }
+
+  function setupMobileReader(pageElements) {
+    if (mobileObserver) {
+      try { mobileObserver.disconnect(); } catch (error) {}
+    }
+    if ('IntersectionObserver' in window) {
+      mobileObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            const index = Number(entry.target.dataset.pageIndex);
+            mobileCurrentPage = index;
+            renderPages([index - 1, index, index + 1], renderGeneration);
+            updateMobileCounter();
+          }
+        });
+      }, { root:null, rootMargin:'500px 0px', threshold:0.15 });
+      pageElements.forEach(function(page) { mobileObserver.observe(page); });
+    }
+    renderPages([0,1,2,3], renderGeneration);
   }
 
   /* ========================================================
@@ -1611,7 +1705,7 @@
      ZOOM
      ======================================================== */
 
-  let readerScale = 1.14;
+  let readerScale = 1.02;
 
   function applyReaderScale() {
     bookElement.style.transform =
