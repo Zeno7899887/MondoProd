@@ -3,16 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mondo Prod — Catalogue V13</title>
-<meta name="catalogue-build" content="V13-2026-09-14">
+<title>Mondo Prod — Catalogue V14</title>
 
 <style>
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
-  html,
-  body {
+  html, body {
     margin: 0;
     padding: 0;
     background: transparent;
@@ -27,6 +23,7 @@
     width: 100%;
     max-width: 1240px;
     margin: 0 auto;
+    padding: 0;
     text-align: center;
   }
 
@@ -54,9 +51,7 @@
     cursor: pointer;
     opacity: .40;
     transform: scale(1);
-    transition:
-      opacity .20s ease,
-      transform .20s ease;
+    transition: opacity .20s ease, transform .20s ease;
   }
 
   .lang-btn:hover {
@@ -69,178 +64,34 @@
     transform: scale(1.14);
   }
 
-  .lang-btn:disabled {
-    cursor: default;
-  }
-
   /* =========================================================
-     LIVRE
+     ZONE LIVRE
      ========================================================= */
 
   #book-area {
     position: relative;
     width: 100%;
-    padding: 0 70px;
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+    padding: 0 58px;
   }
 
-  #book-stage {
+  /*
+    IMPORTANT :
+    le livre est transparent autour de ses pages.
+    Cela permet de voir le fond du site lorsqu'une moitié
+    du livre ne contient aucune page.
+  */
+  #book {
     position: relative;
     width: min(1120px, 100%);
     max-width: 1120px;
     aspect-ratio: 1.41421356 / 1;
     margin: 0 auto;
-    background: transparent !important;
-    perspective: 2500px;
+    transform: translateZ(0);
     transform-style: preserve-3d;
-    overflow: visible;
-  }
-
-  #inner-book {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
     background: transparent !important;
-    z-index: 10;
-  }
-
-  #inner-book.hidden {
-    display: none !important;
-  }
-
-  .pdf-page {
-    position: relative;
-    overflow: hidden;
-    background: #fff;
-    margin: 0;
-    padding: 0;
-  }
-
-  .pdf-page canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: #fff;
-  }
-
-  /* =========================================================
-     COUVERTURES
-     ========================================================= */
-
-  #cover-layer {
-    position: absolute;
-    inset: 0;
-    z-index: 70;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    background: transparent !important;
-  }
-
-  #cover-layer.hidden {
-    display: none !important;
-  }
-
-  .cover-page {
-    position: absolute;
-    top: 0;
-    width: 50%;
-    height: 100%;
-    max-width: 560px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow:
-      0 20px 48px rgba(0,0,0,.24),
-      0 1px 3px rgba(0,0,0,.12);
-    transform-style: preserve-3d;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    will-change: transform;
-  }
-
-  .cover-page canvas {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    display: block;
-    background: #fff;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-
-  #front-cover {
-    left: 50%;
-    transform: translateX(-50%) rotateY(0deg);
-    transform-origin: left center;
-  }
-
-  #back-cover {
-    left: 50%;
-    transform: translateX(-50%) rotateY(0deg);
-    transform-origin: right center;
-    display: none;
-  }
-
-  /*
-    Ombre légère sur la couverture pendant le mouvement,
-    sans modifier la position de la page.
-  */
-  .cover-page::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(0,0,0,0) 55%,
-        rgba(0,0,0,.035) 82%,
-        rgba(0,0,0,.16) 100%
-      );
-    opacity: .72;
-  }
-
-  /* =========================================================
-     APERÇU SOUS LES COUVERTURES
-     ========================================================= */
-
-  #interior-preview {
-    position: absolute;
-    inset: 0;
-    z-index: 20;
-    display: none;
-    pointer-events: none;
-    background: transparent;
-  }
-
-  #preview-left,
-  #preview-right {
-    width: 50%;
-    height: 100%;
-    overflow: hidden;
-    background: #fff;
-  }
-
-  #preview-left canvas,
-  #preview-right canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  @media (max-width: 700px) {
-    #preview-left {
-      display: none;
-    }
-
-    #preview-right {
-      width: 100%;
-    }
   }
 
   /* =========================================================
@@ -251,7 +102,7 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 150;
+    z-index: 100;
 
     width: 52px;
     height: 52px;
@@ -283,10 +134,16 @@
     cursor: default;
   }
 
-  #first-page { left: 2px; }
+  #first-page { left: 3px; }
   #prev-page  { left: 62px; }
   #next-page  { right: 62px; }
-  #last-page  { right: 2px; }
+  #last-page  { right: 3px; }
+
+  /*
+    Les flèches restent visibles même sur les couvertures.
+    La désactivation dépend uniquement de la première/dernière
+    page, pas de l'orientation.
+  */
 
   /* =========================================================
      CHARGEMENT
@@ -295,7 +152,7 @@
   #loading {
     position: absolute;
     inset: 0;
-    z-index: 200;
+    z-index: 90;
 
     display: flex;
     align-items: center;
@@ -307,7 +164,7 @@
     font-size: 14px;
 
     opacity: 1;
-    transition: opacity .20s ease;
+    transition: opacity .25s ease;
   }
 
   #loading.hidden {
@@ -316,9 +173,12 @@
 
   #status {
     display: none;
+
     max-width: 92%;
     margin: 16px auto;
+
     color: #666;
+
     font-size: 14px;
     line-height: 1.45;
   }
@@ -331,19 +191,28 @@
     display: flex;
     justify-content: center;
     align-items: center;
+
     gap: 8px;
-    margin-top: 14px;
+
+    margin: 14px 0 0;
   }
 
   #reader-controls button {
     appearance: none;
     border: 0;
     outline: 0;
+
     background: transparent;
+
     padding: 6px 9px;
+
     font-size: 22px;
+
     cursor: pointer;
+
     border-radius: 8px;
+
+    transition: background .18s ease;
   }
 
   #reader-controls button:hover {
@@ -351,10 +220,13 @@
   }
 
   #page-number {
-    min-width: 106px;
-    text-align: center;
+    min-width: 104px;
+
     font-size: 14px;
+
     font-variant-numeric: tabular-nums;
+
+    text-align: center;
   }
 
   /* =========================================================
@@ -362,6 +234,7 @@
      ========================================================= */
 
   @media (max-width: 700px) {
+
     #catalogue-languages {
       gap: 9px;
       margin-bottom: 13px;
@@ -372,37 +245,19 @@
     }
 
     #book-area {
-      padding: 0 42px;
+      padding: 0 40px;
     }
 
-    #book-stage {
+    /*
+      Sur mobile, PageFlip utilise le mode portrait :
+      couverture seule au centre,
+      pages intérieures une par une.
+    */
+    #book {
       width: min(92vw, 470px);
       aspect-ratio: 1 / 1.41421356;
       max-width: 470px;
     }
-
-    .cover-page {
-      width: 100%;
-      max-width: 470px;
-    }
-
-    #front-cover,
-    #back-cover {
-      left: 0;
-      width: 100%;
-      transform: translateX(0) rotateY(0deg);
-    }
-
-    #first-page { left: 0; }
-    #prev-page {
-      left: 0;
-      top: calc(50% + 55px);
-    }
-    #next-page {
-      right: 0;
-      top: calc(50% + 55px);
-    }
-    #last-page { right: 0; }
 
     .book-arrow {
       width: 43px;
@@ -410,9 +265,11 @@
       font-size: 29px;
     }
 
-    #reader-controls {
-      margin-top: 11px;
-    }
+    #first-page { left: 1px; }
+    #prev-page  { left: 48px; }
+    #next-page  { right: 48px; }
+    #last-page  { right: 1px; }
+
   }
 
   /* =========================================================
@@ -422,12 +279,19 @@
   #catalogue-reader:fullscreen {
     width: 100vw;
     max-width: none;
-    min-height: 100vh;
+    height: 100vh;
+
     background: #fff;
+
     display: flex;
     flex-direction: column;
     justify-content: center;
   }
+
+  #catalogue-reader:fullscreen #book-area {
+    flex: 0 0 auto;
+  }
+
 </style>
 </head>
 
@@ -435,72 +299,130 @@
 
 <div id="catalogue-reader">
 
-  <div id="catalogue-languages" aria-label="Choisir la langue du catalogue">
+  <!-- =======================================================
+       DRAPEAUX
+       ======================================================= -->
 
-    <button class="lang-btn" data-lang="fr" type="button" aria-label="Français">🇫🇷</button>
-    <button class="lang-btn" data-lang="en" type="button" aria-label="English">🇬🇧</button>
-    <button class="lang-btn" data-lang="it" type="button" aria-label="Italiano">🇮🇹</button>
-    <button class="lang-btn" data-lang="es" type="button" aria-label="Español">🇪🇸</button>
+  <div id="catalogue-languages"
+       aria-label="Choisir la langue du catalogue">
+
+    <button
+      class="lang-btn"
+      data-lang="fr"
+      type="button"
+      aria-label="Français">
+      🇫🇷
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="en"
+      type="button"
+      aria-label="English">
+      🇬🇧
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="it"
+      type="button"
+      aria-label="Italiano">
+      🇮🇹
+    </button>
+
+    <button
+      class="lang-btn"
+      data-lang="es"
+      type="button"
+      aria-label="Español">
+      🇪🇸
+    </button>
 
   </div>
 
+
+  <!-- =======================================================
+       LIVRE
+       ======================================================= -->
 
   <div id="book-area">
 
-    <button id="first-page" class="book-arrow" type="button" aria-label="Première page">«</button>
-
-    <button id="prev-page" class="book-arrow" type="button" aria-label="Page précédente">‹</button>
-
-
-    <div id="book-stage">
-
-      <div id="inner-book" class="hidden"></div>
-
-
-      <div id="interior-preview">
-
-        <div id="preview-left"></div>
-        <div id="preview-right"></div>
-
-      </div>
+    <button
+      id="first-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Première page">
+      «
+    </button>
 
 
-      <div id="cover-layer" class="hidden">
-
-        <div id="front-cover" class="cover-page">
-          <canvas id="front-cover-canvas"></canvas>
-        </div>
-
-        <div id="back-cover" class="cover-page">
-          <canvas id="back-cover-canvas"></canvas>
-        </div>
-
-      </div>
+    <button
+      id="prev-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page précédente">
+      ‹
+    </button>
 
 
-      <div id="loading">
-        Chargement du catalogue…
-      </div>
+    <div id="book"></div>
 
+
+    <button
+      id="next-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Page suivante">
+      ›
+    </button>
+
+
+    <button
+      id="last-page"
+      class="book-arrow"
+      type="button"
+      aria-label="Dernière page">
+      »
+    </button>
+
+
+    <div id="loading">
+      Chargement du catalogue…
     </div>
-
-
-    <button id="next-page" class="book-arrow" type="button" aria-label="Page suivante">›</button>
-
-    <button id="last-page" class="book-arrow" type="button" aria-label="Dernière page">»</button>
 
   </div>
 
 
+  <!-- =======================================================
+       CONTRÔLES
+       ======================================================= -->
+
   <div id="reader-controls">
 
-    <button id="zoom-out" type="button" aria-label="Réduire le zoom">−</button>
+    <button
+      id="zoom-out"
+      type="button"
+      aria-label="Réduire le zoom">
+      −
+    </button>
 
-    <span id="page-number">1 / 1</span>
+    <span id="page-number">
+      1 / 1
+    </span>
 
-    <button id="zoom-in" type="button" aria-label="Augmenter le zoom">+</button>
+    <button
+      id="zoom-in"
+      type="button"
+      aria-label="Augmenter le zoom">
+      +
+    </button>
 
-    <button id="fullscreen" type="button" aria-label="Plein écran">⛶</button>
+    <button
+      id="fullscreen"
+      type="button"
+      aria-label="Plein écran">
+      ⛶
+    </button>
 
   </div>
 
@@ -510,21 +432,37 @@
 </div>
 
 
+<!-- =========================================================
+     PDF.JS
+     ========================================================= -->
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+
+<!-- =========================================================
+     PAGEFLIP
+     ========================================================= -->
+
 <script src="https://unpkg.com/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
 
 
 <script>
+
 (function () {
 
   "use strict";
+
+
+  /* ========================================================
+     PDF.JS
+     ======================================================== */
 
   pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 
   /* ========================================================
-     URLS PUBLIQUES EXACTES
+     URLS EXACTES
      ======================================================== */
 
   const catalogues = {
@@ -545,41 +483,11 @@
 
 
   /* ========================================================
-     ELEMENTS
+     ÉLÉMENTS
      ======================================================== */
 
-  const reader =
-    document.getElementById("catalogue-reader");
-
-  const stage =
-    document.getElementById("book-stage");
-
-  const innerBook =
-    document.getElementById("inner-book");
-
-  const preview =
-    document.getElementById("interior-preview");
-
-  const previewLeft =
-    document.getElementById("preview-left");
-
-  const previewRight =
-    document.getElementById("preview-right");
-
-  const coverLayer =
-    document.getElementById("cover-layer");
-
-  const frontCover =
-    document.getElementById("front-cover");
-
-  const backCover =
-    document.getElementById("back-cover");
-
-  const frontCanvas =
-    document.getElementById("front-cover-canvas");
-
-  const backCanvas =
-    document.getElementById("back-cover-canvas");
+  const bookElement =
+    document.getElementById("book");
 
   const loading =
     document.getElementById("loading");
@@ -587,7 +495,7 @@
   const status =
     document.getElementById("status");
 
-  const counter =
+  const pageNumber =
     document.getElementById("page-number");
 
   const firstButton =
@@ -602,14 +510,14 @@
   const lastButton =
     document.getElementById("last-page");
 
-  const zoomIn =
+  const fullscreenButton =
+    document.getElementById("fullscreen");
+
+  const zoomInButton =
     document.getElementById("zoom-in");
 
-  const zoomOut =
+  const zoomOutButton =
     document.getElementById("zoom-out");
-
-  const fullscreen =
-    document.getElementById("fullscreen");
 
   const languageButtons =
     Array.from(
@@ -618,67 +526,42 @@
 
 
   /* ========================================================
-     OUTILS RESPONSIVE
+     ÉTAT
      ======================================================== */
 
-  function isMobile() {
+  let pageFlip = null;
 
-    return window.matchMedia(
-      "(max-width: 700px)"
-    ).matches;
+  let pdf = null;
+
+  let activeLanguage = "fr";
+
+  let loadingCatalogue = false;
+
+
+  /* ========================================================
+     UTILITAIRES
+     ======================================================== */
+
+  function setActiveLanguage(language) {
+
+    languageButtons.forEach(
+      function (button) {
+
+        button.classList.toggle(
+          "active",
+          button.dataset.lang === language
+        );
+
+      }
+    );
 
   }
 
 
-  /* ========================================================
-     ETAT
-     ======================================================== */
-
-  let pdf =
-    null;
-
-  let pageFlip =
-    null;
-
-  let pageEntries =
-    new Map();
-
-  let activeLanguage =
-    "fr";
-
-  let mode =
-    "front";
-
-  let currentInnerIndex =
-    0;
-
-  let busy =
-    false;
-
-  let loadingCatalogue =
-    false;
-
-  let loadToken =
-    0;
-
-  let currentAbortController =
-    null;
-
-  let readerScale =
-    1;
-
-
-  /* ========================================================
-     AFFICHAGE
-     ======================================================== */
-
-  function showLoading(
-    text
-  ) {
+  function showLoading(message) {
 
     loading.textContent =
-      text ||
-      "Chargement du catalogue…";
+      message || "Chargement du catalogue…";
 
     loading.classList.remove(
       "hidden"
@@ -696,9 +579,7 @@
   }
 
 
-  function showError(
-    message
-  ) {
+  function showError(message) {
 
     status.textContent =
       message;
@@ -719,51 +600,15 @@
   }
 
 
-  function setActiveLanguage(
-    language
-  ) {
-
-    languageButtons.forEach(
-      function (button) {
-
-        button.classList.toggle(
-          "active",
-          button.dataset.lang === language
-        );
-
-      }
-    );
-
-  }
-
-
-  function setLanguageButtonsDisabled(
-    disabled
-  ) {
-
-    /*
-      Les drapeaux restent cliquables pendant
-      un chargement de langue.
-      Un second clic remplace proprement le premier.
-    */
-
-    languageButtons.forEach(
-      function (button) {
-
-        button.disabled =
-          false;
-
-      }
-    );
-
-  }
-
-
   /* ========================================================
      LANGUE DU SITE
      ======================================================== */
 
   function detectLanguage() {
+
+    /*
+      1 — ?lang=fr
+    */
 
     try {
 
@@ -772,7 +617,7 @@
           window.location.search
         );
 
-      const query =
+      const queryLang =
         (
           params.get("lang") ||
           ""
@@ -782,15 +627,19 @@
 
 
       if (
-        catalogues[query]
+        catalogues[queryLang]
       ) {
 
-        return query;
+        return queryLang;
 
       }
 
     } catch (error) {}
 
+
+    /*
+      2 — Langue du document.
+    */
 
     const htmlLang =
       (
@@ -810,9 +659,13 @@
     }
 
 
+    /*
+      3 — Langue du navigateur.
+    */
+
     try {
 
-      const browser =
+      const browserLang =
         (
           navigator.language ||
           ""
@@ -822,10 +675,10 @@
 
 
       if (
-        catalogues[browser]
+        catalogues[browserLang]
       ) {
 
-        return browser;
+        return browserLang;
 
       }
 
@@ -838,517 +691,53 @@
 
 
   /* ========================================================
-     NETTOYAGE
+     RENDRE UNE PAGE PDF HAUTE RÉSOLUTION
      ======================================================== */
 
-  function destroyInnerBook() {
-
-
-    if (
-      pageFlip
-    ) {
-
-      try {
-
-        pageFlip.destroy();
-
-      } catch (error) {}
-
-      pageFlip =
-        null;
-
-    }
-
-
-    innerBook.innerHTML =
-      "";
-
-
-    pageEntries =
-      new Map();
-
-    currentInnerIndex =
-      0;
-
-  }
-
-
-  /* ========================================================
-     CRÉER UNE PAGE INTÉRIEURE
-     ======================================================== */
-
-  function createPageElement(
-    pdfPageNumber
+  async function renderPageToImage(
+    pageIndex
   ) {
 
-    const wrapper =
-      document.createElement(
-        "div"
+    const page =
+      await pdf.getPage(
+        pageIndex
       );
 
-    wrapper.className =
-      "pdf-page";
+
+    const baseViewport =
+      page.getViewport({
+        scale: 1
+      });
+
+
+    /*
+      Résolution volontairement élevée :
+      les images restent nettes pendant le mouvement
+      de la page et sur les écrans Retina.
+
+      1600 px de largeur est largement suffisant
+      pour une page affichée dans la liseuse.
+    */
+
+    const targetWidth =
+      1600;
+
+
+    const scale =
+      targetWidth /
+      baseViewport.width;
+
+
+    const viewport =
+      page.getViewport({
+        scale: scale
+      });
 
 
     const canvas =
       document.createElement(
         "canvas"
       );
-
-
-    wrapper.appendChild(
-      canvas
-    );
-
-
-    pageEntries.set(
-      pdfPageNumber,
-      {
-        wrapper: wrapper,
-        canvas: canvas,
-        rendered: false,
-        rendering: null,
-        renderSize: ""
-      }
-    );
-
-
-    return wrapper;
-
-  }
-
-
-  /* ========================================================
-     RENDU HD À LA DEMANDE
-     ======================================================== */
-
-  async function renderEntry(
-    pdfPageNumber
-  ) {
-
-    const entry =
-      pageEntries.get(
-        pdfPageNumber
-      );
-
-
-    if (
-      !entry ||
-      !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    const width =
-      Math.max(
-        1,
-        entry.wrapper.clientWidth
-      );
-
-    const height =
-      Math.max(
-        1,
-        entry.wrapper.clientHeight
-      );
-
-
-    /*
-      Si le moteur n'a pas encore donné de dimension,
-      on attend son premier layout.
-    */
-
-    if (
-      width < 50 ||
-      height < 50
-    ) {
-
-      await new Promise(
-        function (resolve) {
-
-          requestAnimationFrame(
-            resolve
-          );
-
-        }
-      );
-
-    }
-
-
-    const currentWidth =
-      Math.max(
-        1,
-        entry.wrapper.clientWidth
-      );
-
-    const currentHeight =
-      Math.max(
-        1,
-        entry.wrapper.clientHeight
-      );
-
-
-    const dpr =
-      Math.min(
-        window.devicePixelRatio || 1,
-        3
-      );
-
-
-    const renderKey =
-      Math.round(
-        currentWidth
-      ) +
-      "x" +
-      Math.round(
-        currentHeight
-      ) +
-      "@" +
-      dpr;
-
-
-    /*
-      Si la page existe déjà en HD à cette taille,
-      aucun nouveau rendu.
-    */
-
-    if (
-      entry.rendered &&
-      entry.renderSize === renderKey
-    ) {
-
-      return;
-
-    }
-
-
-    if (
-      entry.rendering
-    ) {
-
-      return entry.rendering;
-
-    }
-
-
-    entry.rendering =
-      (async function () {
-
-        const page =
-          await pdf.getPage(
-            pdfPageNumber
-          );
-
-
-        const base =
-          page.getViewport({
-            scale: 1
-          });
-
-
-        const fit =
-          Math.min(
-            currentWidth / base.width,
-            currentHeight / base.height
-          );
-
-
-        /*
-          Rendu toujours plus dense que l'affichage.
-          Le canvas final est au minimum 2x CSS et jusqu'à 3x
-          sur Retina, avec une limite raisonnable.
-        */
-
-        const targetPixelWidth =
-          Math.min(
-            2600,
-            Math.max(
-              1600,
-              Math.round(
-                currentWidth *
-                dpr
-              )
-            )
-          );
-
-
-        const scale =
-          Math.min(
-            fit * dpr,
-            targetPixelWidth /
-              base.width
-          );
-
-
-        const viewport =
-          page.getViewport({
-            scale: scale
-          });
-
-
-        entry.canvas.width =
-          Math.ceil(
-            viewport.width
-          );
-
-
-        entry.canvas.height =
-          Math.ceil(
-            viewport.height
-          );
-
-
-        entry.canvas.style.width =
-          "100%";
-
-        entry.canvas.style.height =
-          "100%";
-
-
-        const ctx =
-          entry.canvas.getContext(
-            "2d",
-            {
-              alpha:
-                false
-            }
-          );
-
-
-        ctx.imageSmoothingEnabled =
-          true;
-
-        ctx.imageSmoothingQuality =
-          "high";
-
-
-        ctx.fillStyle =
-          "#fff";
-
-
-        ctx.fillRect(
-          0,
-          0,
-          entry.canvas.width,
-          entry.canvas.height
-        );
-
-
-        await page.render({
-
-          canvasContext:
-            ctx,
-
-          viewport:
-            viewport,
-
-          intent:
-            "display",
-
-          renderInteractiveForms:
-            true
-
-        }).promise;
-
-
-        entry.rendered =
-          true;
-
-        entry.renderSize =
-          renderKey;
-
-      })();
-
-
-    try {
-
-      await entry.rendering;
-
-    } finally {
-
-      entry.rendering =
-        null;
-
-    }
-
-  }
-
-
-  /* ========================================================
-     PRECHARGEMENT LIMITÉ
-     ======================================================== */
-
-  async function preloadNear(
-    innerIndex
-  ) {
-
-    if (
-      !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    const center =
-      innerIndex + 2;
-
-
-    const wanted = [
-
-      center,
-      center + 1,
-      center + 2,
-      center + 3
-
-    ];
-
-
-    const unique =
-      Array.from(
-        new Set(
-          wanted.filter(
-            function (n) {
-
-              return (
-                n >= 2 &&
-                n <= pdf.numPages - 1
-              );
-
-            }
-          )
-        )
-      );
-
-
-    /*
-      Première passe :
-      page actuellement visible immédiatement.
-    */
-
-    if (
-      unique.length
-    ) {
-
-      await renderEntry(
-        unique[0]
-      );
-
-    }
-
-
-    /*
-      Puis les pages voisines.
-    */
-
-    for (
-      let i = 1;
-      i < unique.length;
-      i++
-    ) {
-
-      /*
-        Laisse le navigateur respirer entre deux rendus.
-      */
-
-      await new Promise(
-        function (resolve) {
-
-          requestAnimationFrame(
-            resolve
-          );
-
-        }
-      );
-
-
-      await renderEntry(
-        unique[i]
-      );
-
-    }
-
-  }
-
-
-  /* ========================================================
-     RENDRE UNE COUVERTURE EN CANVAS HD
-     ======================================================== */
-
-  async function renderCover(
-    pdfPageNumber,
-    canvas
-  ) {
-
-    const page =
-      await pdf.getPage(
-        pdfPageNumber
-      );
-
-
-    const base =
-      page.getViewport({
-        scale: 1
-      });
-
-
-    const cssWidth =
-      Math.max(
-        1,
-        canvas.parentElement.clientWidth
-      );
-
-
-    const cssHeight =
-      Math.max(
-        1,
-        canvas.parentElement.clientHeight
-      );
-
-
-    const dpr =
-      Math.min(
-        window.devicePixelRatio || 1,
-        3
-      );
-
-
-    const fit =
-      Math.min(
-        cssWidth / base.width,
-        cssHeight / base.height
-      );
-
-
-    const maxWidth =
-      Math.min(
-        2600,
-        Math.max(
-          1800,
-          Math.round(
-            cssWidth *
-            dpr
-          )
-        )
-      );
-
-
-    const scale =
-      Math.min(
-        fit * dpr,
-        maxWidth / base.width
-      );
-
-
-    const viewport =
-      page.getViewport({
-        scale:
-          scale
-      });
 
 
     canvas.width =
@@ -1362,34 +751,19 @@
       );
 
 
-    canvas.style.width =
-      "100%";
-
-    canvas.style.height =
-      "100%";
-
-
-    const ctx =
+    const context =
       canvas.getContext(
         "2d",
         {
-          alpha:
-            false
+          alpha: false
         }
       );
 
 
-    ctx.imageSmoothingEnabled =
-      true;
+    context.fillStyle =
+      "#ffffff";
 
-    ctx.imageSmoothingQuality =
-      "high";
-
-    ctx.fillStyle =
-      "#fff";
-
-
-    ctx.fillRect(
+    context.fillRect(
       0,
       0,
       canvas.width,
@@ -1400,164 +774,186 @@
     await page.render({
 
       canvasContext:
-        ctx,
+        context,
 
       viewport:
         viewport,
 
       intent:
-        "display"
+        "display",
+
+      renderInteractiveForms:
+        true
 
     }).promise;
 
-  }
-
-
-  /* ========================================================
-     CREER LE MOTEUR INTERIEUR
-     ======================================================== */
-
-  function createInnerBook() {
-
-    destroyInnerBook();
-
-
-    const elements =
-      [];
-
 
     /*
-      PDF 1 = couverture.
-      PDF total = dernière page.
-      Le moteur ne reçoit que PDF 2 -> total-1.
+      PNG sans perte pour conserver au maximum
+      la netteté du PDF.
     */
 
-    for (
-      let pdfPage = 2;
-      pdfPage < pdf.numPages;
-      pdfPage++
-    ) {
+    const blob =
+      await new Promise(
+        function (resolve) {
 
-      elements.push(
-        createPageElement(
-          pdfPage
-        )
-      );
-
-    }
-
-
-    pageFlip =
-      new St.PageFlip(
-        innerBook,
-        {
-
-          width:
-            760,
-
-          height:
-            1075,
-
-          size:
-            "stretch",
-
-          minWidth:
-            260,
-
-          maxWidth:
-            1800,
-
-          minHeight:
-            360,
-
-          maxHeight:
-            2550,
-
-          flippingTime:
-            900,
-
-          drawShadow:
-            true,
-
-          maxShadowOpacity:
-            .78,
-
-          showPageCorners:
-            true,
-
-          useMouseEvents:
-            true,
-
-          swipeDistance:
-            24,
-
-          clickEventForward:
-            false,
-
-          mobileScrollSupport:
-            true,
-
-          usePortrait:
-            true,
-
-          showCover:
-            false,
-
-          autoSize:
-            true,
-
-          startPage:
-            0,
-
-          startZIndex:
-            20
+          canvas.toBlob(
+            resolve,
+            "image/png"
+          );
 
         }
       );
 
 
-    pageFlip.loadFromHTML(
-      elements
-    );
+    if (!blob) {
+
+      throw new Error(
+        "Impossible de préparer la page " +
+        pageIndex
+      );
+
+    }
 
 
-    pageFlip.on(
-      "flip",
-      async function (event) {
-
-        currentInnerIndex =
-          event.data;
+    const url =
+      URL.createObjectURL(
+        blob
+      );
 
 
-        updateCounter();
+    return url;
+
+  }
 
 
-        /*
-          Rend la page nouvellement visible
-          et quelques voisines, sans bloquer
-          l'interface.
-        */
+  /* ========================================================
+     LIBÉRER LES URLS
+     ======================================================== */
 
-        preloadNear(
-          currentInnerIndex
-        );
+  function revokeImages(
+    images
+  ) {
+
+    images.forEach(
+      function (url) {
+
+        try {
+
+          URL.revokeObjectURL(
+            url
+          );
+
+        } catch (error) {}
 
       }
     );
 
-
-    pageFlip.on(
-      "changeOrientation",
-      function () {
-
-        updateCounter();
+  }
 
 
-        preloadNear(
-          pageFlip.getCurrentPageIndex()
-        );
+  /* ========================================================
+     CRÉER UNE VRAIE LISEUSE
+     ======================================================== */
 
-      }
+  function createBook(
+    images
+  ) {
+
+    /*
+      Le livre utilise le système natif de PageFlip.
+
+      showCover:true :
+        - page 1 = couverture seule, centrée
+        - pages intérieures = double page
+        - dernière page = couverture seule, centrée
+
+      usePortrait:true :
+        - mobile = page seule
+        - desktop = double page
+
+      La transition est donc gérée par PageFlip
+      comme une vraie feuille accrochée à sa reliure.
+    */
+
+    pageFlip =
+      new St.PageFlip(
+        bookElement,
+        {
+
+          width: 760,
+
+          height: 1075,
+
+          size: "stretch",
+
+          minWidth: 250,
+
+          maxWidth: 1800,
+
+          minHeight: 350,
+
+          maxHeight: 2550,
+
+          /*
+            Animation réaliste :
+            un peu plus lente qu'un simple slide.
+          */
+
+          flippingTime: 950,
+
+          /*
+            Première + dernière pages seules.
+          */
+
+          showCover: true,
+
+          /*
+            Ombres.
+          */
+
+          drawShadow: true,
+
+          maxShadowOpacity: .78,
+
+          /*
+            Coins.
+          */
+
+          showPageCorners: true,
+
+          /*
+            Navigation tactile/souris.
+          */
+
+          useMouseEvents: true,
+
+          swipeDistance: 25,
+
+          clickEventForward: false,
+
+          mobileScrollSupport: true,
+
+          /*
+            Responsive :
+            double page desktop,
+            page seule mobile.
+          */
+
+          usePortrait: true,
+
+          startPage: 0,
+
+          startZIndex: 20,
+
+          autoSize: false
+
+        }
+      );
+
+
+    pageFlip.loadFromImages(
+      images
     );
 
 
@@ -1565,704 +961,14 @@
       0
     );
 
-  }
-
-
-  /* ========================================================
-     APERÇU SOUS COUVERTURE
-     ======================================================== */
-
-  function clearPreview() {
-
-    previewLeft.innerHTML =
-      "";
-
-    previewRight.innerHTML =
-      "";
-
-  }
-
-
-  async function showOpeningPreview() {
-
-    clearPreview();
-
-
-    const firstEntry =
-      pageEntries.get(2);
-
-
-    if (
-      firstEntry
-    ) {
-
-      await renderEntry(
-        2
-      );
-
-
-      const canvas =
-        firstEntry.canvas.cloneNode(
-          true
-        );
-
-
-      previewRight.appendChild(
-        canvas
-      );
-
-    }
-
-
-    preview.style.display =
-      "flex";
-
-  }
-
-
-  async function showClosingPreview() {
-
-    clearPreview();
-
-
-    const leftPage =
-      Math.max(
-        2,
-        pdf.numPages - 2
-      );
-
-
-    const rightPage =
-      Math.max(
-        2,
-        pdf.numPages - 1
-      );
-
-
-    const leftEntry =
-      pageEntries.get(
-        leftPage
-      );
-
-
-    const rightEntry =
-      pageEntries.get(
-        rightPage
-      );
-
-
-    if (
-      leftEntry
-    ) {
-
-      await renderEntry(
-        leftPage
-      );
-
-
-      previewLeft.appendChild(
-        leftEntry.canvas.cloneNode(
-          true
-        )
-      );
-
-    }
-
-
-    if (
-      rightEntry &&
-      !isMobile()
-    ) {
-
-      await renderEntry(
-        rightPage
-      );
-
-
-      previewRight.appendChild(
-        rightEntry.canvas.cloneNode(
-          true
-        )
-      );
-
-    }
-
-
-    preview.style.display =
-      "flex";
-
-  }
-
-
-  /* ========================================================
-     ETAT COUVERTURE AVANT
-     ======================================================== */
-
-  function showFrontCover() {
-
-    mode =
-      "front";
-
-
-    busy =
-      false;
-
-
-    innerBook.classList.add(
-      "hidden"
-    );
-
-
-    preview.style.display =
-      "none";
-
-
-    coverLayer.classList.remove(
-      "hidden"
-    );
-
-
-    frontCover.style.display =
-      "block";
-
-
-    backCover.style.display =
-      "none";
-
-
-    frontCover.style.width =
-      isMobile()
-        ? "100%"
-        : "50%";
-
-
-    frontCover.style.left =
-      isMobile()
-        ? "0"
-        : "50%";
-
-
-    frontCover.style.transformOrigin =
-      "left center";
-
-
-    frontCover.style.transition =
-      "none";
-
-
-    frontCover.style.transform =
-      isMobile()
-        ? "translateX(0) rotateY(0deg)"
-        : "translateX(-50%) rotateY(0deg)";
-
-
-    updateCounter();
-
-  }
-
-
-  /* ========================================================
-     OUVERTURE COUVERTURE
-     ======================================================== */
-
-  async function openFrontCover() {
-
-    if (
-      busy ||
-      !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    busy =
-      true;
-
 
     /*
-      Le moteur intérieur est déjà présent.
-      On ne prépare que la page immédiatement visible.
+      Mise à jour immédiate.
     */
 
-    innerBook.classList.remove(
-      "hidden"
-    );
-
-
-    await preloadNear(
-      0
-    );
-
-
-    await showOpeningPreview();
-
-
-    frontCover.style.transition =
-      "none";
-
-
-    frontCover.style.transform =
-      isMobile()
-        ? "translateX(0) rotateY(0deg)"
-        : "translateX(-50%) rotateY(0deg)";
-
-
-    coverLayer.classList.remove(
-      "hidden"
-    );
-
-
     requestAnimationFrame(
-      function () {
-
-        requestAnimationFrame(
-          function () {
-
-            frontCover.style.transition =
-              "transform 900ms cubic-bezier(.215,.61,.355,1)";
-
-
-            frontCover.style.transform =
-              isMobile()
-                ? "translateX(0) rotateY(-180deg)"
-                : "translateX(-50%) rotateY(-180deg)";
-
-          }
-        );
-
-      }
+      updateCounter
     );
-
-
-    await new Promise(
-      function (resolve) {
-
-        setTimeout(
-          resolve,
-          930
-        );
-
-      }
-    );
-
-
-    frontCover.style.transition =
-      "none";
-
-
-    frontCover.style.transform =
-      isMobile()
-        ? "translateX(0)"
-        : "translateX(-50%)";
-
-
-    coverLayer.classList.add(
-      "hidden"
-    );
-
-
-    preview.style.display =
-      "none";
-
-
-    mode =
-      "inner";
-
-
-    if (
-      pageFlip
-    ) {
-
-      pageFlip.turnToPage(
-        0
-      );
-
-    }
-
-
-    updateCounter();
-
-
-    busy =
-      false;
-
-  }
-
-
-  /* ========================================================
-     ETAT DERNIERE PAGE
-     ======================================================== */
-
-  function showBackCover() {
-
-    mode =
-      "back";
-
-
-    innerBook.classList.add(
-      "hidden"
-    );
-
-
-    preview.style.display =
-      "none";
-
-
-    coverLayer.classList.remove(
-      "hidden"
-    );
-
-
-    frontCover.style.display =
-      "none";
-
-
-    backCover.style.display =
-      "block";
-
-
-    backCover.style.width =
-      isMobile()
-        ? "100%"
-        : "50%";
-
-
-    backCover.style.left =
-      isMobile()
-        ? "0"
-        : "50%";
-
-
-    backCover.style.transformOrigin =
-      "right center";
-
-
-    backCover.style.transition =
-      "none";
-
-
-    backCover.style.transform =
-      isMobile()
-        ? "translateX(0)"
-        : "translateX(-50%)";
-
-
-    updateCounter();
-
-  }
-
-
-  /* ========================================================
-     FERMETURE VERS DERNIERE PAGE
-     ======================================================== */
-
-  async function closeToBackCover() {
-
-    if (
-      busy ||
-      !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    busy =
-      true;
-
-
-    const lastInnerIndex =
-      Math.max(
-        0,
-        (
-          pdf.numPages - 2
-        ) - 2
-      );
-
-
-    await preloadNear(
-      lastInnerIndex
-    );
-
-
-    await showClosingPreview();
-
-
-    coverLayer.classList.remove(
-      "hidden"
-    );
-
-
-    frontCover.style.display =
-      "none";
-
-
-    backCover.style.display =
-      "block";
-
-
-    backCover.style.width =
-      isMobile()
-        ? "100%"
-        : "50%";
-
-
-    backCover.style.left =
-      isMobile()
-        ? "0"
-        : "50%";
-
-
-    backCover.style.transformOrigin =
-      isMobile()
-        ? "right center"
-        : "left center";
-
-
-    backCover.style.transition =
-      "none";
-
-
-    backCover.style.transform =
-      isMobile()
-        ? "translateX(0) rotateY(0deg)"
-        : "translateX(0) rotateY(0deg)";
-
-
-    requestAnimationFrame(
-      function () {
-
-        requestAnimationFrame(
-          function () {
-
-            backCover.style.transition =
-              "transform 900ms cubic-bezier(.215,.61,.355,1)";
-
-
-            backCover.style.transform =
-              isMobile()
-                ? "translateX(0) rotateY(180deg)"
-                : "translateX(0) rotateY(180deg)";
-
-          }
-        );
-
-      }
-    );
-
-
-    await new Promise(
-      function (resolve) {
-
-        setTimeout(
-          resolve,
-          930
-        );
-
-      }
-    );
-
-
-    innerBook.classList.add(
-      "hidden"
-    );
-
-
-    preview.style.display =
-      "none";
-
-
-    backCover.style.transition =
-      "none";
-
-
-    backCover.style.transform =
-      isMobile()
-        ? "translateX(0)"
-        : "translateX(-50%)";
-
-
-    mode =
-      "back";
-
-
-    updateCounter();
-
-
-    busy =
-      false;
-
-  }
-
-
-  /* ========================================================
-     OUVRIR DEPUIS LE DOS
-     ======================================================== */
-
-  async function openBackCover() {
-
-    if (
-      busy ||
-      !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    busy =
-      true;
-
-
-    const lastInnerIndex =
-      Math.max(
-        0,
-        (
-          pdf.numPages - 2
-        ) - 2
-      );
-
-
-    innerBook.classList.remove(
-      "hidden"
-    );
-
-
-    await preloadNear(
-      lastInnerIndex
-    );
-
-
-    if (
-      pageFlip
-    ) {
-
-      pageFlip.turnToPage(
-        lastInnerIndex
-      );
-
-    }
-
-
-    await showClosingPreview();
-
-
-    coverLayer.classList.remove(
-      "hidden"
-    );
-
-
-    frontCover.style.display =
-      "none";
-
-
-    backCover.style.display =
-      "block";
-
-
-    backCover.style.width =
-      isMobile()
-        ? "100%"
-        : "50%";
-
-
-    backCover.style.left =
-      isMobile()
-        ? "0"
-        : "50%";
-
-
-    backCover.style.transformOrigin =
-      "right center";
-
-
-    backCover.style.transition =
-      "none";
-
-
-    backCover.style.transform =
-      isMobile()
-        ? "translateX(0) rotateY(0deg)"
-        : "translateX(-50%) rotateY(0deg)";
-
-
-    requestAnimationFrame(
-      function () {
-
-        requestAnimationFrame(
-          function () {
-
-            backCover.style.transition =
-              "transform 900ms cubic-bezier(.215,.61,.355,1)";
-
-
-            backCover.style.transform =
-              isMobile()
-                ? "translateX(0) rotateY(-180deg)"
-                : "translateX(0) rotateY(-180deg)";
-
-          }
-        );
-
-      }
-    );
-
-
-    await new Promise(
-      function (resolve) {
-
-        setTimeout(
-          resolve,
-          930
-        );
-
-      }
-    );
-
-
-    coverLayer.classList.add(
-      "hidden"
-    );
-
-
-    preview.style.display =
-      "none";
-
-
-    backCover.style.transition =
-      "none";
-
-
-    backCover.style.transform =
-      isMobile()
-        ? "translateX(0)"
-        : "translateX(-50%)";
-
-
-    mode =
-      "inner";
-
-
-    if (
-      pageFlip
-    ) {
-
-      pageFlip.turnToPage(
-        lastInnerIndex
-      );
-
-    }
-
-
-    updateCounter();
-
-
-    busy =
-      false;
 
   }
 
@@ -2274,77 +980,8 @@
   function updateCounter() {
 
     if (
+      !pageFlip ||
       !pdf
-    ) {
-
-      return;
-
-    }
-
-
-    const total =
-      pdf.numPages;
-
-
-    if (
-      mode ===
-      "front"
-    ) {
-
-      counter.textContent =
-        "1 / " +
-        total;
-
-
-      firstButton.disabled =
-        true;
-
-      prevButton.disabled =
-        true;
-
-      nextButton.disabled =
-        false;
-
-      lastButton.disabled =
-        false;
-
-
-      return;
-
-    }
-
-
-    if (
-      mode ===
-      "back"
-    ) {
-
-      counter.textContent =
-        total +
-        " / " +
-        total;
-
-
-      firstButton.disabled =
-        false;
-
-      prevButton.disabled =
-        false;
-
-      nextButton.disabled =
-        true;
-
-      lastButton.disabled =
-        true;
-
-
-      return;
-
-    }
-
-
-    if (
-      !pageFlip
     ) {
 
       return;
@@ -2356,37 +993,65 @@
       pageFlip.getCurrentPageIndex();
 
 
-    currentInnerIndex =
-      index;
+    const total =
+      pdf.numPages;
 
 
-    const firstPdfPage =
-      index + 2;
-
+    /*
+      Première couverture.
+    */
 
     if (
-      pageFlip.getOrientation() ===
-      "portrait"
+      index === 0
     ) {
 
-      counter.textContent =
-        firstPdfPage +
+      pageNumber.textContent =
+        "1 / " +
+        total;
+
+    }
+
+    /*
+      Dernière couverture.
+    */
+
+    else if (
+      index === total - 1
+    ) {
+
+      pageNumber.textContent =
+        total +
         " / " +
         total;
 
-    } else {
+    }
 
-      const secondPdfPage =
+    /*
+      Pages intérieures.
+    */
+
+    else {
+
+      const first =
+        index + 1;
+
+
+      const second =
         Math.min(
-          firstPdfPage + 1,
-          total - 1
+          index + 2,
+          total
         );
 
 
-      counter.textContent =
-        firstPdfPage +
+      /*
+        En double page on affiche
+        "2–3 / 44", "4–5 / 44", etc.
+      */
+
+      pageNumber.textContent =
+        first +
         "–" +
-        secondPdfPage +
+        second +
         " / " +
         total;
 
@@ -2394,184 +1059,110 @@
 
 
     firstButton.disabled =
-      false;
-
-    lastButton.disabled =
-      false;
+      index <= 0;
 
     prevButton.disabled =
       index <= 0;
 
-
-    const lastInnerIndex =
-      Math.max(
-        0,
-        (
-          total - 2
-        ) - 2
-      );
-
-
     nextButton.disabled =
-      index >=
-      lastInnerIndex;
+      index >= total - 1;
+
+    lastButton.disabled =
+      index >= total - 1;
 
   }
 
 
   /* ========================================================
-     CHARGEMENT D'UNE LANGUE
+     ÉVÉNEMENTS PAGEFLIP
      ======================================================== */
 
-  async function loadLanguage(
-    language
-  ) {
-
-    /*
-      Un clic plus récent remplace immédiatement
-      un chargement précédent.
-    */
-
-    loadToken += 1;
-
-    const myToken =
-      loadToken;
-
+  function attachPageFlipEvents() {
 
     if (
-      currentAbortController
+      !pageFlip
     ) {
 
-      try {
-
-        currentAbortController.abort();
-
-      } catch (error) {}
+      return;
 
     }
 
 
-    currentAbortController =
-      new AbortController();
+    pageFlip.on(
+      "flip",
+      function () {
 
+        updateCounter();
 
-    activeLanguage =
-      catalogues[language]
-        ? language
-        : "fr";
-
-
-    setActiveLanguage(
-      activeLanguage
+      }
     );
 
 
-    /*
-      Désormais les drapeaux ne sont JAMAIS bloqués.
-    */
+    pageFlip.on(
+      "changeOrientation",
+      function () {
 
-    setLanguageButtonsDisabled(
-      false
+        updateCounter();
+
+      }
     );
 
-
-    showLoading(
-      "Chargement du catalogue…"
-    );
+  }
 
 
-    hideError();
+  /* ========================================================
+     CHARGER UN CATALOGUE
+     ======================================================== */
+
+  async function loadCatalogue(
+    language
+  ) {
+
+    if (
+      loadingCatalogue
+    ) {
+
+      return;
+
+    }
 
 
-    /*
-      L'ancien livre disparaît seulement lorsque le nouveau
-      PDF est prêt : pas d'écran vide pendant le téléchargement.
-    */
+    if (
+      !catalogues[language]
+    ) {
+
+      language =
+        "fr";
+
+    }
+
 
     loadingCatalogue =
       true;
 
 
+    activeLanguage =
+      language;
+
+
+    setActiveLanguage(
+      language
+    );
+
+
+    hideError();
+
+    showLoading();
+
+
+    let images = [];
+
+
     try {
 
-      const response =
-        await fetch(
-          catalogues[activeLanguage],
-          {
-            cache:
-              "no-store",
-
-            signal:
-              currentAbortController.signal
-          }
-        );
-
-
-      if (
-        myToken !==
-        loadToken
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        !response.ok
-      ) {
-
-        throw new Error(
-          "HTTP " +
-          response.status +
-          " — " +
-          catalogues[activeLanguage]
-        );
-
-      }
-
-
-      const data =
-        await response.arrayBuffer();
-
-
-      if (
-        myToken !==
-        loadToken
-      ) {
-
-        return;
-
-      }
-
-
-      const newPdf =
-        await pdfjsLib
-          .getDocument({
-            data:
-              data
-          })
-          .promise;
-
-
-      if (
-        myToken !==
-        loadToken
-      ) {
-
-        try {
-
-          newPdf.destroy();
-
-        } catch (error) {}
-
-        return;
-
-      }
-
-
       /*
-        Tout ce qui suit appartient au nouveau catalogue.
+        Détruire le livre précédent
+        avant de commencer.
       */
 
       if (
@@ -2584,151 +1175,104 @@
 
         } catch (error) {}
 
-        pageFlip =
-          null;
+        pageFlip = null;
 
       }
 
 
-      innerBook.innerHTML =
-        "";
+      /*
+        URL exacte GitHub Pages.
+      */
 
-      pageEntries =
-        new Map();
+      const response =
+        await fetch(
+          catalogues[language],
+          {
+            cache: "no-store"
+          }
+        );
 
 
-      if (
-        pdf
-      ) {
+      if (!response.ok) {
 
-        try {
-
-          pdf.destroy();
-
-        } catch (error) {}
+        throw new Error(
+          "HTTP " +
+          response.status +
+          " — " +
+          catalogues[language]
+        );
 
       }
+
+
+      const data =
+        await response.arrayBuffer();
 
 
       pdf =
-        newPdf;
-
-
-      mode =
-        "front";
-
-
-      currentInnerIndex =
-        0;
+        await pdfjsLib.getDocument({
+          data: data
+        }).promise;
 
 
       /*
-        Préparation UNIQUEMENT des deux couvertures.
-        C'est ce qui rend le changement de langue rapide.
+        Préparer toutes les pages.
       */
 
-      await renderCover(
-        1,
-        frontCanvas
-      );
-
-
-      if (
-        myToken !==
-        loadToken
+      for (
+        let i = 1;
+        i <= pdf.numPages;
+        i++
       ) {
 
-        return;
-
-      }
-
-
-      await renderCover(
-        pdf.numPages,
-        backCanvas
-      );
+        showLoading(
+          "Préparation du catalogue " +
+          i +
+          " / " +
+          pdf.numPages +
+          "…"
+        );
 
 
-      if (
-        myToken !==
-        loadToken
-      ) {
-
-        return;
+        images.push(
+          await renderPageToImage(
+            i
+          )
+        );
 
       }
 
 
       /*
-        Construction du moteur intérieur.
-        Les pages internes ne sont PAS rendues maintenant.
+        Création de la liseuse.
       */
 
-      createInnerBook();
+      createBook(
+        images
+      );
 
 
-      /*
-        Couverture visible immédiatement.
-      */
-
-      showFrontCover();
+      attachPageFlipEvents();
 
 
       hideLoading();
 
 
-      /*
-        Le premier contenu intérieur est préparé en arrière-plan.
-        Ça ne bloque plus l'affichage de la couverture.
-      */
+    } catch (error) {
 
-      window.setTimeout(
-        function () {
-
-          if (
-            myToken === loadToken &&
-            pdf
-          ) {
-
-            preloadNear(0);
-
-          }
-
-        },
-        0
+      console.error(
+        "Erreur catalogue :",
+        error
       );
 
 
-    } catch (error) {
-
       /*
-        Un ancien chargement annulé n'est pas une erreur à afficher.
+        Si la construction a échoué,
+        les object URLs déjà créées sont libérées.
       */
 
-      if (
-        error &&
-        error.name ===
-        "AbortError"
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        myToken !==
-        loadToken
-      ) {
-
-        return;
-
-      }
-
-
-      console.error(
-        "Erreur chargement catalogue:",
-        error
+      revokeImages(
+        images
       );
 
 
@@ -2745,227 +1289,12 @@
 
     } finally {
 
-      if (
-        myToken ===
-        loadToken
-      ) {
-
-        loadingCatalogue =
-          false;
-
-      }
+      loadingCatalogue =
+        false;
 
     }
 
   }
-
-
-  /* ========================================================
-     PREMIERE PAGE
-     ======================================================== */
-
-  firstButton.addEventListener(
-    "click",
-    async function () {
-
-      if (
-        busy ||
-        !pdf ||
-        mode === "front"
-      ) {
-
-        return;
-
-      }
-
-
-      /*
-        Saut direct : aucun flip intermédiaire.
-      */
-
-      showFrontCover();
-
-    }
-  );
-
-
-  /* ========================================================
-     DERNIERE PAGE
-     ======================================================== */
-
-  lastButton.addEventListener(
-    "click",
-    async function () {
-
-      if (
-        busy ||
-        !pdf ||
-        mode === "back"
-      ) {
-
-        return;
-
-      }
-
-
-      /*
-        Saut direct à la dernière page.
-      */
-
-      showBackCover();
-
-    }
-  );
-
-
-  /* ========================================================
-     PRECEDENT
-     ======================================================== */
-
-  prevButton.addEventListener(
-    "click",
-    async function () {
-
-      if (
-        busy ||
-        !pdf
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        mode === "front"
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        mode === "back"
-      ) {
-
-        await openBackCover();
-
-        return;
-
-      }
-
-
-      if (
-        !pageFlip
-      ) {
-
-        return;
-
-      }
-
-
-      const index =
-        pageFlip.getCurrentPageIndex();
-
-
-      if (
-        index <= 0
-      ) {
-
-        showFrontCover();
-
-        return;
-
-      }
-
-
-      pageFlip.flipPrev(
-        "bottom"
-      );
-
-    }
-  );
-
-
-  /* ========================================================
-     SUIVANT
-     ======================================================== */
-
-  nextButton.addEventListener(
-    "click",
-    async function () {
-
-      if (
-        busy ||
-        !pdf
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        mode === "front"
-      ) {
-
-        await openFrontCover();
-
-        return;
-
-      }
-
-
-      if (
-        mode === "back"
-      ) {
-
-        return;
-
-      }
-
-
-      if (
-        !pageFlip
-      ) {
-
-        return;
-
-      }
-
-
-      const index =
-        pageFlip.getCurrentPageIndex();
-
-
-      const lastInnerIndex =
-        Math.max(
-          0,
-          (
-            pdf.numPages - 2
-          ) - 2
-        );
-
-
-      if (
-        index >=
-        lastInnerIndex
-      ) {
-
-        await closeToBackCover();
-
-        return;
-
-      }
-
-
-      pageFlip.flipNext(
-        "bottom"
-      );
-
-    }
-  );
 
 
   /* ========================================================
@@ -2979,29 +1308,8 @@
         "click",
         function () {
 
-          const language =
-            button.dataset.lang;
-
-
-          if (
-            language ===
-            activeLanguage &&
-            !loadingCatalogue
-          ) {
-
-            return;
-
-          }
-
-
-          /*
-            Important :
-            on ne bloque plus jamais les boutons.
-            Un clic lance/remplace le chargement.
-          */
-
-          loadLanguage(
-            language
+          loadCatalogue(
+            button.dataset.lang
           );
 
         }
@@ -3012,34 +1320,99 @@
 
 
   /* ========================================================
+     FLÈCHES
+     ======================================================== */
+
+  firstButton.addEventListener(
+    "click",
+    function () {
+      if (pageFlip) {
+        pageFlip.turnToPage(0);
+      }
+    }
+  );
+
+
+  lastButton.addEventListener(
+    "click",
+    function () {
+      if (pageFlip && pdf) {
+        pageFlip.turnToPage(
+          Math.max(0, pdf.numPages - 1)
+        );
+      }
+    }
+  );
+
+
+  prevButton.addEventListener(
+    "click",
+    function () {
+
+      if (
+        pageFlip
+      ) {
+
+        pageFlip.flipPrev(
+          "bottom"
+        );
+
+      }
+
+    }
+  );
+
+
+  nextButton.addEventListener(
+    "click",
+    function () {
+
+      if (
+        pageFlip
+      ) {
+
+        pageFlip.flipNext(
+          "bottom"
+        );
+
+      }
+
+    }
+  );
+
+
+  /* ========================================================
      ZOOM
      ======================================================== */
 
-  zoomIn.addEventListener(
+  let readerScale = 1;
+
+
+  zoomInButton.addEventListener(
     "click",
     function () {
 
       readerScale =
         Math.min(
-          1.12,
+          1.14,
           readerScale + .04
         );
 
 
-      stage.style.transform =
+      bookElement.style.transform =
         "translateZ(0) scale(" +
         readerScale +
         ")";
 
 
-      stage.style.transformOrigin =
+      bookElement.style.transformOrigin =
         "center center";
 
     }
   );
 
 
-  zoomOut.addEventListener(
+  zoomOutButton.addEventListener(
     "click",
     function () {
 
@@ -3050,13 +1423,13 @@
         );
 
 
-      stage.style.transform =
+      bookElement.style.transform =
         "translateZ(0) scale(" +
         readerScale +
         ")";
 
 
-      stage.style.transformOrigin =
+      bookElement.style.transformOrigin =
         "center center";
 
     }
@@ -3064,10 +1437,10 @@
 
 
   /* ========================================================
-     PLEIN ECRAN
+     PLEIN ÉCRAN
      ======================================================== */
 
-  fullscreen.addEventListener(
+  fullscreenButton.addEventListener(
     "click",
     async function () {
 
@@ -3077,7 +1450,11 @@
           !document.fullscreenElement
         ) {
 
-          await reader.requestFullscreen();
+          await document
+            .getElementById(
+              "catalogue-reader"
+            )
+            .requestFullscreen();
 
         } else {
 
@@ -3107,111 +1484,7 @@
     function (event) {
 
       if (
-        event.key ===
-        "ArrowRight"
-      ) {
-
-        nextButton.click();
-
-      }
-
-
-      if (
-        event.key ===
-        "ArrowLeft"
-      ) {
-
-        prevButton.click();
-
-      }
-
-
-      if (
-        event.key ===
-        "Home"
-      ) {
-
-        firstButton.click();
-
-      }
-
-
-      if (
-        event.key ===
-        "End"
-      ) {
-
-        lastButton.click();
-
-      }
-
-    }
-  );
-
-
-  /* ========================================================
-     SWIPE
-     ======================================================== */
-
-  let touchStartX =
-    0;
-
-  let touchStartY =
-    0;
-
-
-  stage.addEventListener(
-    "touchstart",
-    function (event) {
-
-      const touch =
-        event.changedTouches[0];
-
-
-      touchStartX =
-        touch.screenX;
-
-      touchStartY =
-        touch.screenY;
-
-    },
-    {
-      passive:
-        true
-    }
-  );
-
-
-  stage.addEventListener(
-    "touchend",
-    function (event) {
-
-      if (
-        busy
-      ) {
-
-        return;
-
-      }
-
-
-      const touch =
-        event.changedTouches[0];
-
-
-      const dx =
-        touchStartX -
-        touch.screenX;
-
-
-      const dy =
-        touchStartY -
-        touch.screenY;
-
-
-      if (
-        Math.abs(dx) < 45 ||
-        Math.abs(dx) < Math.abs(dy)
+        !pageFlip
       ) {
 
         return;
@@ -3220,159 +1493,40 @@
 
 
       if (
-        dx > 0
+        event.key === "ArrowRight"
       ) {
 
-        nextButton.click();
-
-      } else {
-
-        prevButton.click();
-
-      }
-
-    },
-    {
-      passive:
-        true
-    }
-  );
-
-
-  /* ========================================================
-     RESIZE
-     ======================================================== */
-
-  window.addEventListener(
-    "resize",
-    function () {
-
-      clearTimeout(
-        window.__catalogueResize
-      );
-
-
-      window.__catalogueResize =
-        setTimeout(
-          async function () {
-
-            if (
-              pageFlip
-            ) {
-
-              pageEntries.forEach(
-                function (entry) {
-
-                  entry.rendered =
-                    false;
-
-                }
-              );
-
-
-              pageFlip.update();
-
-
-              preloadNear(
-                pageFlip.getCurrentPageIndex()
-              );
-
-            }
-
-
-            if (
-              pdf &&
-              mode === "front"
-            ) {
-
-              await renderCover(
-                1,
-                frontCanvas
-              );
-
-            }
-
-
-            if (
-              pdf &&
-              mode === "back"
-            ) {
-
-              await renderCover(
-                pdf.numPages,
-                backCanvas
-              );
-
-            }
-
-
-            if (
-              mode === "front"
-            ) {
-
-              frontCover.style.width =
-                isMobile()
-                  ? "100%"
-                  : "50%";
-
-
-              frontCover.style.left =
-                isMobile()
-                  ? "0"
-                  : "50%";
-
-
-              frontCover.style.transform =
-                isMobile()
-                  ? "translateX(0) rotateY(0deg)"
-                  : "translateX(-50%) rotateY(0deg)";
-
-            }
-
-
-            if (
-              mode === "back"
-            ) {
-
-              backCover.style.width =
-                isMobile()
-                  ? "100%"
-                  : "50%";
-
-
-              backCover.style.left =
-                isMobile()
-                  ? "0"
-                  : "50%";
-
-
-              backCover.style.transform =
-                isMobile()
-                  ? "translateX(0)"
-                  : "translateX(-50%)";
-
-            }
-
-
-            updateCounter();
-
-          },
-          180
+        pageFlip.flipNext(
+          "bottom"
         );
 
+      }
+
+
+      if (
+        event.key === "ArrowLeft"
+      ) {
+
+        pageFlip.flipPrev(
+          "bottom"
+        );
+
+      }
+
     }
   );
 
 
   /* ========================================================
-     DEMARRAGE
+     DÉMARRAGE
      ======================================================== */
 
-  loadLanguage(
+  loadCatalogue(
     detectLanguage()
   );
 
 })();
+
 </script>
 
 </body>
