@@ -4,7 +4,6 @@
 
   <div id="mp-loading" hidden aria-hidden="true">
     <img id="mp-loading-globe" alt="" src="https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/Catalogue%20FR.pdf_11-2.png">
-    <div id="mp-loading-progress"></div>
   </div>
 
   <div id="mp-catalogue-languages" aria-label="Choisir la langue du catalogue">
@@ -85,15 +84,18 @@
 
   #mp-page-number { margin-top:8px; font-size:12px; font-weight:600; color:rgba(0,0,0,.6); }
 
-  #mp-loading { position:absolute; inset:0; z-index:5000; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; pointer-events:none; opacity:0; visibility:hidden; background:rgba(255,255,255,.55); }
+  /* Le globe de chargement fonctionne désormais sur PC comme sur mobile :
+     il se superpose à la zone du livre ou du carrousel selon le mode actif. */
+  #mp-loading { position:absolute; inset:0; z-index:5000; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:0; visibility:hidden; background:rgba(255,255,255,.55); }
   #mp-loading[hidden] { display:none !important; }
   #mp-catalogue-reader[data-loading="true"] #mp-loading:not([hidden]) { opacity:1; visibility:visible; }
   #mp-loading-globe { width:72px; height:72px; object-fit:contain; animation:mpSpin 6s linear infinite; }
   @keyframes mpSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-  #mp-loading-progress { font-size:12px; font-weight:600; color:rgba(0,0,0,.55); min-height:16px; }
 
   #mp-status { display:none; max-width:780px; margin:12px auto 0; padding:10px 14px; border:1px solid rgba(190,30,45,.18); border-radius:10px; background:rgba(255,245,246,.86); color:#8b2833; font-size:13px; }
 
+  /* Bascule PC / mobile : le livre PageFlip est utilisé au-dessus de 700px,
+     le carrousel fondu/zoom en dessous. */
   @media (min-width: 701px) {
     #mp-book-area { display:flex; }
     #mp-carousel-wrap { display:none !important; }
@@ -113,17 +115,13 @@
   "use strict";
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-  /* Fichiers PDF récupérés directement depuis GitHub. On utilise
-     jsdelivr (CDN rapide et gratuit, basé sur un vrai réseau de
-     distribution mondial) comme miroir de raw.githubusercontent.com,
-     qui est lent et non optimisé pour servir de gros fichiers binaires.
-     jsdelivr sert automatiquement n'importe quel fichier d'un dépôt
-     GitHub public à cette URL, sans configuration côté dépôt. */
+  /* Fichiers PDF récupérés directement depuis GitHub (contenu brut),
+     sans passer par une page HTML hébergée sur GitHub Pages. */
   var catalogues = {
-    fr: "https://cdn.jsdelivr.net/gh/Zeno7899887/MondoProd@main/catalogue-fr.pdf",
-    en: "https://cdn.jsdelivr.net/gh/Zeno7899887/MondoProd@main/catalogue-en.pdf",
-    it: "https://cdn.jsdelivr.net/gh/Zeno7899887/MondoProd@main/catalogue-it.pdf",
-    es: "https://cdn.jsdelivr.net/gh/Zeno7899887/MondoProd@main/catalogue-es.pdf"
+    fr: "https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/catalogue-fr.pdf",
+    en: "https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/catalogue-en.pdf",
+    it: "https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/catalogue-it.pdf",
+    es: "https://raw.githubusercontent.com/Zeno7899887/MondoProd/main/catalogue-es.pdf"
   };
   var DEFAULT_LANGUAGE = "fr";
 
@@ -133,7 +131,6 @@
     var carousel = document.getElementById("mp-carousel");
     var status = document.getElementById("mp-status");
     var pageNumber = document.getElementById("mp-page-number");
-    var loadingProgress = document.getElementById("mp-loading-progress");
 
     var firstBtn = document.getElementById("mp-first-page");
     var prevBtn = document.getElementById("mp-prev-page");
@@ -154,9 +151,12 @@
     var slides = [], index = 0;
     var mobileMode = false;
 
+    /* Cache des buffers PDF ET des PDFDocumentProxy déjà ouverts par PDF.js :
+       une fois une langue consultée, la rebasculer est instantané, sans
+       re-télécharger ni re-parser le PDF. */
+    var bufferCache = {};
     var pdfDocCache = {};
     var prefetchStarted = {};
-    var renderedCache = {};
 
     function isMobileView(){ return window.matchMedia("(max-width: 700px)").matches; }
 
@@ -164,9 +164,11 @@
       langButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.lang === lang); });
     }
     function showLoading(){ reader.dataset.loading = "true"; var l=document.getElementById("mp-loading"); if(l){ l.hidden=false; } }
-    function hideLoading(){ reader.dataset.loading = "false"; var l=document.getElementById("mp-loading"); if(l){ l.hidden=true; } loadingProgress.textContent = ""; }
+    function hideLoading(){ reader.dataset.loading = "false"; var l=document.getElementById("mp-loading"); if(l){ l.hidden=true; } }
     function showError(msg){ status.textContent = msg; status.style.display = "block"; hideLoading(); }
     function hideError(){ status.style.display = "none"; }
     function setLangButtonsBusy(busy){ langButtons.forEach(function(b){ b.disabled = busy; }); }
 
-    function detec
+    function detectLanguage(){
+      try {
+        var params = new URLSearchP
